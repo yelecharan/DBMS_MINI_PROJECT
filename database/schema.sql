@@ -15,6 +15,7 @@ CREATE TABLE employees (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+
 -- 2. ACCESS CARDS TABLE
 CREATE TABLE access_cards (
     card_id SERIAL PRIMARY KEY,
@@ -28,6 +29,7 @@ CREATE TABLE access_cards (
         FOREIGN KEY (employee_id)
         REFERENCES employees(employee_id)
 );
+
 
 -- 3. ACCESS LOGS TABLE
 CREATE TABLE access_logs (
@@ -45,23 +47,8 @@ CREATE TABLE access_logs (
         REFERENCES access_cards(card_id)
 );
 
--- 4. TAILGATING INCIDENTS TABLE
-CREATE TABLE tailgating_incidents (
-    incident_id SERIAL PRIMARY KEY,
-    log_id INT,
-    incident_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    description TEXT,
-    severity VARCHAR(20) DEFAULT 'Medium'
-        CHECK (severity IN ('Low', 'Medium', 'High')),
-    incident_status VARCHAR(20) DEFAULT 'Open'
-        CHECK (incident_status IN ('Open', 'Investigating', 'Resolved')),
-    
-    CONSTRAINT fk_incident_log
-        FOREIGN KEY (log_id)
-        REFERENCES access_logs(log_id)
-);
 
--- 5. USERS TABLE
+-- 4. USERS TABLE
 CREATE TABLE users (
     user_id SERIAL PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
@@ -70,3 +57,30 @@ CREATE TABLE users (
         CHECK (role IN ('Admin', 'Security Officer')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+
+-- 5. TAILGATING INCIDENTS TABLE
+CREATE TABLE tailgating_incidents (
+    incident_id SERIAL PRIMARY KEY,
+    log_id INT,
+    investigated_by INT,
+    incident_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    description TEXT,
+    severity VARCHAR(20) DEFAULT 'Medium'
+        CHECK (severity IN ('Low', 'Medium', 'High')),
+    incident_status VARCHAR(20) DEFAULT 'Open'
+        CHECK (incident_status IN ('Open', 'Investigating', 'Resolved')),
+
+    CONSTRAINT fk_incident_log
+        FOREIGN KEY (log_id)
+        REFERENCES access_logs(log_id),
+
+    CONSTRAINT fk_incident_user
+        FOREIGN KEY (investigated_by)
+        REFERENCES users(user_id)
+);
+
+
+-- ==========================================
+-- END OF DATABASE SCHEMA
+-- ==========================================
