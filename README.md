@@ -57,3 +57,8 @@ These are demo-only credentials; change them before sharing a running instance. 
 For system design, SQL execution order and exact verification results, see [the project audit](docs/PROJECT_AUDIT.md), [the submission report](docs/submission/DBMS_Project_Report.md), and [the test report](docs/submission/Test_Report.md).
 
 Genuine screenshots of the local synthetic-data demo are in [docs/submission/screenshots](docs/submission/screenshots/).
+
+## Team
+
+- Yele Charan
+- Vilohith sree sai reddy
