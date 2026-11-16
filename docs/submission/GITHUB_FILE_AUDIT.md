@@ -22,4 +22,5 @@ The inventory excludes ignored build output, Python/Node dependency directories,
 - The target URL was provided by the user. Read-only inspection found `main` at `931a877` and no existing `gatesentry-final-completion` branch.
 - The local release branch is based on the remote `main` history. Its 100 GateSentry files are supplemented by 11 original remote-only files, including the SQL scripts, original ER image and `.gitkeep` markers; those files were preserved.
 - The root README was updated for the completed app while retaining the existing team attribution. The remote `main` branch has not been modified.
-- This audit records the pre-push state. The release branch has not yet been pushed; publication will use a normal, non-forced push.
+- The release branch was published with a normal, non-forced push. Its initial published head was `306f931`; the remote `main` branch remains untouched.
+- The branch is available at [yelecharan/DBMS_MINI_PROJECT/tree/gatesentry-final-completion](https://github.com/yelecharan/DBMS_MINI_PROJECT/tree/gatesentry-final-completion). No pull request was opened.
