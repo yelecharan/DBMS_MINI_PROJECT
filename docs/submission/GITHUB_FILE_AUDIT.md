@@ -2,6 +2,7 @@
 
 **Audit date:** 2026-11-17
 **Project root:** `AR_VR_1/AR_VR_1/GateSentry-DBMS-MiniProject`
+**Target repository:** `yelecharan/DBMS_MINI_PROJECT`
 **Requested branch:** `gatesentry-final-completion`
 
 ## Project file inventory
@@ -18,7 +19,7 @@ The inventory excludes ignored build output, Python/Node dependency directories,
 
 ## Repository and publication status
 
-- The nested GateSentry repository had no prior commits or configured remote; it now has the initial project commit on the local `gatesentry-final-completion` branch.
-- GitHub repository search for GateSentry under `vilxxh` returned no matches. A read-only `git ls-remote` attempt against the likely `vilxxh/GateSentry-DBMS-MiniProject` URL returned “Repository not found.”
-- The enclosing `vilxxh/Space-Debris-Collision-Simuation` remote responds to Git CLI, but it is the unrelated outer project and must not receive GateSentry commits.
-- No remote was configured and no push was attempted. Publishing requires the intended GateSentry GitHub owner/repository URL.
+- The target URL was provided by the user. Read-only inspection found `main` at `931a877` and no existing `gatesentry-final-completion` branch.
+- The local release branch is based on the remote `main` history. Its 100 GateSentry files are supplemented by 11 original remote-only files, including the SQL scripts, original ER image and `.gitkeep` markers; those files were preserved.
+- The root README was updated for the completed app while retaining the existing team attribution. The remote `main` branch has not been modified.
+- This audit records the pre-push state. The release branch has not yet been pushed; publication will use a normal, non-forced push.
