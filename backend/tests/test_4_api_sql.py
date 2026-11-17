@@ -101,6 +101,16 @@ def test_recursive_burst_chain(client, admin):
     assert any(r["scans_in_chain"] >= 2 for r in d["rows"])
 
 
+def test_recursive_burst_chain_terminates_on_equal_timestamps(su):
+    """Two scans at the same gate with the SAME scan_time used to make the recursion loop forever."""
+    su.execute("SET LOCAL statement_timeout = '5s'")
+    su.execute("INSERT INTO access_logs (card_id, gate_id, scan_time) VALUES "
+               "(1, 4, TIMESTAMP '2026-01-01 09:00:00'), (2, 4, TIMESTAMP '2026-01-01 09:00:00'), "
+               "(3, 4, TIMESTAMP '2026-01-01 09:00:00')")
+    rows = su.execute(SQL_QUERIES["recursive_burst_chains"]["sql"]).fetchall()
+    assert any(r[1] == 4 and r[2] == 3 for r in rows)          # one chain of 3 scans at gate 4
+
+
 def test_dashboard(client, guard):
     d = client.get("/api/dashboard", headers=guard).json()
     for k in ("employees", "cards", "gates", "scans", "incidents", "pending_alerts"):

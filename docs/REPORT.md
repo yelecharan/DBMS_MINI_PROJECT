@@ -148,7 +148,7 @@ SELECT d.day, COUNT(i.incident_id) AS incidents
 FROM days d LEFT JOIN incidents i ON i.detected_time::date = d.day
 GROUP BY d.day ORDER BY d.day;
 ```
-`05_queries.sql` (and the **Query Lab** page) contains 19 queries in total, including a correlated "above department average" query, a CTE ranking open incidents per employee, and a recursive CTE that chains consecutive scans ≤ 10 s apart into tailgating bursts.
+`05_queries.sql` (and the **Query Lab** page, which has 20) contain the queries, including a correlated "above department average" query, a CTE ranking open incidents per employee, and a recursive CTE that chains consecutive scans ≤ 10 s apart into tailgating bursts.
 
 ### 5.5 Advanced SQL – functions, procedures, triggers, CTE
 
@@ -198,6 +198,17 @@ CREATE CONSTRAINT TRIGGER trg_employee_requires_card
     AFTER INSERT ON employees DEFERRABLE INITIALLY DEFERRED
     FOR EACH ROW EXECUTE FUNCTION fn_check_employee_has_card();
 ```
+
+**Demonstration file:** `07_advanced_sql_demo.sql` runs every routine above against the real data inside one transaction that ends in `ROLLBACK`:
+
+| Section | What it shows |
+|---|---|
+| A | catalog listing of all routines and triggers |
+| B.1 – B.4 | each of the 4 functions called, including `fn_report_tailgating` inserting an incident and refusing a case with no extra people |
+| C.1 – C.2 | both procedures called, with the resulting rows |
+| D.1 – D.5 | each of the 5 triggers firing: card auto-expired, scans forced to DENIED, incident before scan rejected, employee without card rejected, last card delete rejected |
+| E.1 – E.3 | one CTE with two named sub-queries, plus two recursive CTEs (anchor member, recursive member, stop condition) |
+| F | bonus: a VIEW, window functions (`RANK`, `SUM … OVER`, `LAG`) and `SAVEPOINT` / `ROLLBACK TO SAVEPOINT` |
 
 ### 5.6 Role-based access control in the database (`03_roles.sql`)
 ```sql
@@ -352,11 +363,11 @@ The screenshots in `docs/screenshots/` were captured from the running applicatio
 
 Test run (`pytest`, against the real PostgreSQL 18 and MongoDB servers):
 ```
-114 passed in 4.8s
+115 passed in 3.1s
   test_1_connectivity.py            8   PostgreSQL/MongoDB connection, tables, FKs, collections, validators, indexes
   test_2_sql_constraints.py        10   UNIQUE, CHECK, FK, NOT NULL, RESTRICT, total participation
   test_3_functions_triggers.py     16   all triggers, functions, procedures
-  test_4_api_sql.py                30   CRUD via API, filters, every report query, dashboard
+  test_4_api_sql.py                31   CRUD via API, filters, every report query, dashboard
   test_5_auth_rbac.py              19   login, JWT, 403s, database-level privilege enforcement
   test_6_mongo_and_integration.py   9   validator, CRUD, $push/$pull, ack, aggregation, SQL↔Mongo
   test_7_viewer_role.py            22   viewer can read, cannot write (API 403 + PostgreSQL permission denied)
@@ -371,9 +382,9 @@ Test run (`pytest`, against the real PostgreSQL 18 and MongoDB servers):
 | 3 | SQL implementation – DDL with constraints | 4 | ✅ Complete | `01_schema.sql`: PK, FK (CASCADE/RESTRICT), UNIQUE, CHECK, NOT NULL, DEFAULT, ALTER, indexes |
 | 4 | NoSQL database creation | 4 | ✅ Complete | 3 collections with `$jsonSchema` validators and 10 indexes (`mongo_setup.py`, `mongo_commands.js`) |
 | 5 | Technology justification | 1 | ✅ Complete | §4 |
-| 6 | DML operations | 4 | ✅ Complete | §5.3, all CRUD forms in the UI |
-| 7 | Nested / correlated / recursive and JOIN queries | 4 | ✅ Complete | §5.4, 19 queries in Query Lab |
-| 8 | Procedures/functions, triggers, CTE | 6 | ✅ Complete | 5 functions, 2 procedures, 5 triggers, CTE and recursive CTEs (§5.5) |
+| 6 | DML operations | 4 | ✅ Complete | §5.3, `06_dml_demo.sql` (one headed INSERT/UPDATE/DELETE per table), `mongo_dml_demo.js`, all CRUD forms in the UI |
+| 7 | Nested / correlated / recursive and JOIN queries | 4 | ✅ Complete | §5.4, 20 SQL queries + 5 MongoDB pipelines in Query Lab |
+| 8 | Procedures/functions, triggers, CTE | 6 | ✅ Complete | 4 functions, 2 procedures, 5 triggers (4 trigger functions), 1 CTE + 2 recursive CTEs; every one run in `07_advanced_sql_demo.sql` (§5.5) |
 | 9 | NoSQL features – RUD | 7 | ✅ Complete | find with filters/sort/text search, updateOne/$push/$pull/$addToSet, deleteOne/deleteMany, aggregation with $group/$lookup/$unwind/$facet |
 | 10 | Next.js interface | 3 | ✅ Complete | 10 required pages + Query Lab, search/filter/sort, validation, confirmation dialogs, status badges |
 | 11 | Backend/API and DB integration | 2 | ✅ Complete | FastAPI connected to both real servers, SQL↔Mongo integration |

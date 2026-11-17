@@ -170,7 +170,8 @@ GROUP BY d.day ORDER BY d.day;
 -- follow each other within 10 seconds are linked into one chain
 WITH RECURSIVE ordered AS (
     SELECT scan_id, gate_id, scan_time,
-           LAG(scan_time) OVER (PARTITION BY gate_id ORDER BY scan_time) AS prev_time
+           LAG(scan_time) OVER (PARTITION BY gate_id ORDER BY scan_time, scan_id) AS prev_time,
+           LAG(scan_id)   OVER (PARTITION BY gate_id ORDER BY scan_time, scan_id) AS prev_id
     FROM access_logs
 ),
 chain AS (
@@ -181,7 +182,7 @@ chain AS (
     SELECT ch.chain_start, o.scan_id, o.gate_id, o.scan_time, ch.depth + 1
     FROM chain ch
     JOIN ordered o ON o.gate_id = ch.gate_id
-                  AND o.prev_time = ch.scan_time
+                  AND o.prev_id = ch.scan_id   -- link by id: no loops on equal times
                   AND o.scan_time - ch.scan_time <= INTERVAL '10 seconds'
 )
 SELECT chain_start, gate_id, COUNT(*) AS scans_in_chain,

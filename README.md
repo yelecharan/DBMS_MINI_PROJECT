@@ -43,11 +43,12 @@ DBMS/
 ├── database/
 │   ├── postgres/
 │   │   ├── 01_schema.sql              DDL: DROP/CREATE/ALTER TABLE, PK, FK, UNIQUE, CHECK, NOT NULL, DEFAULT, indexes
-│   │   ├── 02_functions_triggers.sql  4 triggers, 5 functions, 2 procedures
+│   │   ├── 02_functions_triggers.sql  5 triggers, 4 functions (+4 trigger functions), 2 procedures
 │   │   ├── 03_roles.sql               gs_admin / gs_security group roles and GRANTs
 │   │   ├── 04_seed.sql                sample data (DML INSERT)
 │   │   ├── 05_queries.sql             DML, JOINs, nested, correlated, recursive, GROUP BY/HAVING, CTEs
-│   │   └── 06_dml_demo.sql            demo: list/count tables, structure, view data, INSERT/UPDATE/DELETE
+│   │   ├── 06_dml_demo.sql            demo: list/count tables, structure, view data, INSERT/UPDATE/DELETE
+│   │   └── 07_advanced_sql_demo.sql   demo: calls every function/procedure, fires every trigger, CTEs (rolls back)
 │   └── mongodb/
 │       ├── mongo_commands.js          collection creation, validators, indexes, CRUD, aggregation
 │       └── mongo_dml_demo.js          demo: list/count collections, structure, view data, insert/update/delete
@@ -61,7 +62,7 @@ DBMS/
 │   │   └── routers/                   employees, cards, gates, access_logs, incidents,
 │   │                                  observations, reports, alerts, analytics
 │   ├── scripts/init_db.py             creates/resets both databases and loads sample data
-│   └── tests/                         114 pytest tests against the real servers
+│   └── tests/                         115 pytest tests against the real servers
 ├── frontend/                          Next.js app (tree in docs/REPORT.md §7)
 └── docs/
     ├── REPORT.md                      university report
@@ -119,6 +120,7 @@ The tests cover connectivity, constraints, triggers, functions and procedures, S
 ### 4. Demo scripts (view tables, insert, update, delete)
 * **PostgreSQL:** in pgAdmin, right-click `gatesentry` → **Query Tool**, open `database/postgres/06_dml_demo.sql` and run it (F5). It lists the 5 tables, counts rows, shows each table's columns and constraints and all data, inserts into every table, runs UPDATE and DELETE, then shows the data again.
 * **MongoDB:** in Compass, connect to `mongodb://localhost:27017` and click **Open MongoDB shell**. Run `use gatesentry`, then copy the commands in `database/mongodb/mongo_dml_demo.js` **one at a time** and press Enter after each. It covers the same steps for the 3 collections, with one headed insert, update and delete per collection.
+* **Advanced SQL:** run `database/postgres/07_advanced_sql_demo.sql` the same way in pgAdmin. It calls every function and procedure, fires all 5 triggers (the rejections show in the **Messages** tab), and runs the CTEs, recursive CTEs, a view, window functions and a SAVEPOINT. It ends with `ROLLBACK`, so nothing is saved.
 * Both scripts can be run more than once. To go back to the original sample data, run `python -m scripts.init_db` again.
 
 ### 5. Look at the data in the GUIs
