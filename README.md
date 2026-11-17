@@ -46,9 +46,11 @@ DBMS/
 │   │   ├── 02_functions_triggers.sql  4 triggers, 5 functions, 2 procedures
 │   │   ├── 03_roles.sql               gs_admin / gs_security group roles and GRANTs
 │   │   ├── 04_seed.sql                sample data (DML INSERT)
-│   │   └── 05_queries.sql             DML, JOINs, nested, correlated, recursive, GROUP BY/HAVING, CTEs
+│   │   ├── 05_queries.sql             DML, JOINs, nested, correlated, recursive, GROUP BY/HAVING, CTEs
+│   │   └── 06_dml_demo.sql            demo: list/count tables, structure, view data, INSERT/UPDATE/DELETE
 │   └── mongodb/
-│       └── mongo_commands.js          collection creation, validators, indexes, CRUD, aggregation
+│       ├── mongo_commands.js          collection creation, validators, indexes, CRUD, aggregation
+│       └── mongo_dml_demo.js          demo: list/count collections, structure, view data, insert/update/delete
 ├── backend/
 │   ├── .env.example                   copy to .env (never committed)
 │   ├── requirements.txt
@@ -114,6 +116,11 @@ cd backend
 ```
 The tests cover connectivity, constraints, triggers, functions and procedures, SQL CRUD, every report query, authentication, RBAC (API and database level), MongoDB CRUD and aggregation, and SQL↔MongoDB integration. They run against the real servers and clean up after themselves.
 
-### 4. Look at the data in the GUIs
+### 4. Demo scripts (view tables, insert, update, delete)
+* **PostgreSQL:** in pgAdmin, right-click `gatesentry` → **Query Tool**, open `database/postgres/06_dml_demo.sql` and run it (F5). It lists the 5 tables, counts rows, shows each table's columns and constraints and all data, inserts into every table, runs UPDATE and DELETE, then shows the data again.
+* **MongoDB:** in Compass, connect to `mongodb://localhost:27017`, open **>_ MONGOSH** at the bottom, paste `database/mongodb/mongo_dml_demo.js` and press Enter. It does the same for the 3 collections.
+* Both scripts can be run more than once. To go back to the original sample data, run `python -m scripts.init_db` again.
+
+### 5. Look at the data in the GUIs
 * **pgAdmin 4:** Servers → PostgreSQL 18 → Databases → `gatesentry` → Schemas → public → Tables / Functions / Trigger Functions. Login/Group Roles show `admin`, `guard`, `viewer`, `gatesentry_app`, `gs_admin`, `gs_security`, `gs_viewer`.
 * **MongoDB Compass:** connect to `mongodb://localhost:27017` → `gatesentry` → `Observations`, `Report`, `Alerts`. The Validation and Indexes tabs show the schemas and indexes. `database/mongodb/mongo_commands.js` can be pasted into Compass's built-in **MONGOSH** shell.

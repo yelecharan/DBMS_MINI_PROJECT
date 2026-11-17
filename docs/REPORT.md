@@ -32,7 +32,7 @@ A guard compares the number of people seen at a gate with the number of authoris
 
 ## 5. SQL – Database Commands
 
-The full scripts are in `database/postgres/`. The key commands are below.
+The full scripts are in `database/postgres/`. The key commands are below. `06_dml_demo.sql` is a single demo file that lists and counts the tables, shows their structure and data, and runs INSERT, UPDATE and DELETE on every table.
 
 ### 5.1 Relational schema (from the ER diagram)
 
@@ -233,7 +233,7 @@ SELECT phone FROM employees;                   -- ERROR: permission denied for t
 
 ## 6. NoSQL (MongoDB) – Database Commands
 
-The full script is in `database/mongodb/mongo_commands.js`. It can be run in Compass's MONGOSH tab. The backend runs the same operations through PyMongo (`backend/app/mongo_setup.py`, `routers/observations.py`, `reports.py`, `alerts.py`).
+The full script is in `database/mongodb/mongo_commands.js`. `mongo_dml_demo.js` is a single demo file that lists and counts the collections, shows their validators, indexes and data, and runs insert, update and delete on every collection. Both can be run in Compass's MONGOSH tab. The backend runs the same operations through PyMongo (`backend/app/mongo_setup.py`, `routers/observations.py`, `reports.py`, `alerts.py`).
 
 | Collection | Fields (from relational schema R6–R8) | Extra document features |
 |---|---|---|
