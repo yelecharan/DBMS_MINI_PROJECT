@@ -16,7 +16,7 @@ from sqlalchemy.engine import Connection
 
 from .config import settings
 
-ROLE_TO_PG = {"admin": "gs_admin", "security": "gs_security"}
+ROLE_TO_PG = {"admin": "gs_admin", "security": "gs_security", "viewer": "gs_viewer"}
 
 engine = create_engine(
     settings.pg_url(settings.PG_APP_USER, settings.PG_APP_PASSWORD),

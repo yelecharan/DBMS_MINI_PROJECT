@@ -4,9 +4,9 @@
   SCRAM-SHA-256 hashes, and login is verified by PostgreSQL itself: we try to
   open a connection with the supplied credentials.
 * The user's application role comes from role membership
-  (member of gs_admin -> "admin", member of gs_security -> "security").
+  (gs_admin -> "admin", gs_security -> "security", gs_viewer -> "viewer").
 * A signed JWT carries {sub, role}. Every protected endpoint checks it, and the
-  database session then runs `SET LOCAL ROLE gs_admin|gs_security`, so the same
+  database session then runs `SET LOCAL ROLE gs_admin|gs_security|gs_viewer`, so the same
   rule is enforced twice: in the API and inside PostgreSQL.
 """
 from datetime import datetime, timedelta, timezone
@@ -25,7 +25,7 @@ bearer = HTTPBearer(auto_error=False)
 
 class CurrentUser(BaseModel):
     username: str
-    role: str          # "admin" | "security"
+    role: str          # "admin" | "security" | "viewer"
 
 
 def verify_credentials(username: str, password: str) -> CurrentUser | None:
@@ -35,7 +35,8 @@ def verify_credentials(username: str, password: str) -> CurrentUser | None:
                              connect_timeout=5) as conn:
             row = conn.execute("""
                 SELECT pg_has_role(current_user, 'gs_admin', 'MEMBER'),
-                       pg_has_role(current_user, 'gs_security', 'MEMBER')""").fetchone()
+                       pg_has_role(current_user, 'gs_security', 'MEMBER'),
+                       pg_has_role(current_user, 'gs_viewer', 'MEMBER')""").fetchone()
     except psycopg.OperationalError as exc:
         msg = str(exc).lower()
         if "password authentication failed" in msg or "does not exist" in msg \
@@ -49,6 +50,8 @@ def verify_credentials(username: str, password: str) -> CurrentUser | None:
         return CurrentUser(username=username, role="admin")
     if row[1]:
         return CurrentUser(username=username, role="security")
+    if row[2]:
+        return CurrentUser(username=username, role="viewer")
     return None
 
 
@@ -70,9 +73,16 @@ def get_current_user(creds: HTTPAuthorizationCredentials | None = Depends(bearer
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Session expired") from exc
     except jwt.PyJWTError as exc:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token") from exc
-    if data.get("role") not in ("admin", "security"):
+    if data.get("role") not in ("admin", "security", "viewer"):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
     return CurrentUser(username=data["sub"], role=data["role"])
+
+
+def require_staff(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
+    """Admin or security staff - the limited 'viewer' role is read-only."""
+    if user.role not in ("admin", "security"):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Read-only account: staff role required")
+    return user
 
 
 def require_admin(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:

@@ -4,12 +4,14 @@
 --   gs_admin     (NOLOGIN group) - full DML on all five tables, can call procedures
 --   gs_security  (NOLOGIN group) - read-only on master data, may record scans,
 --                                  raise incidents and change ONLY incidents.status
+--   gs_viewer    (NOLOGIN group) - limited user: read-only, cannot see employees.phone
 --
 -- Login roles (created by backend/scripts/init_db.py, passwords from .env):
 --   admin           -> member of gs_admin
 --   guard           -> member of gs_security
+--   viewer          -> member of gs_viewer
 --   gatesentry_app  -> the FastAPI connection. It owns no privileges itself
---                      (NOINHERIT) and must run  SET LOCAL ROLE gs_admin|gs_security
+--                      (NOINHERIT) and must run  SET LOCAL ROLE gs_admin|gs_security|gs_viewer
 --                      inside every transaction, so PostgreSQL itself enforces the
 --                      role of the logged-in user.
 -- Passwords are stored by PostgreSQL as SCRAM-SHA-256 hashes (never plaintext).
@@ -23,14 +25,17 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'gs_security') THEN
         CREATE ROLE gs_security NOLOGIN;
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'gs_viewer') THEN
+        CREATE ROLE gs_viewer NOLOGIN;
+    END IF;
 END $$;
 
 -- start from a clean slate
-REVOKE ALL ON employees, cards, gates, access_logs, incidents FROM PUBLIC, gs_admin, gs_security;
-REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC, gs_admin, gs_security;
+REVOKE ALL ON employees, cards, gates, access_logs, incidents FROM PUBLIC, gs_admin, gs_security, gs_viewer;
+REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC, gs_admin, gs_security, gs_viewer;
 REVOKE EXECUTE ON ALL FUNCTIONS  IN SCHEMA public FROM PUBLIC;
 REVOKE EXECUTE ON ALL PROCEDURES IN SCHEMA public FROM PUBLIC;
-GRANT USAGE ON SCHEMA public TO gs_admin, gs_security;
+GRANT USAGE ON SCHEMA public TO gs_admin, gs_security, gs_viewer;
 
 -- ---------------- Admin: everything ----------------
 GRANT SELECT, INSERT, UPDATE, DELETE
@@ -56,3 +61,15 @@ GRANT EXECUTE ON FUNCTION
 -- trigger functions must be executable by whoever fires the trigger
 GRANT EXECUTE ON FUNCTION fn_check_employee_has_card(), fn_card_auto_expire() TO gs_admin;
 -- NOTE: security staff get NO DELETE anywhere and NO access to the procedures.
+
+-- ---------------- Viewer (limited, read-only user) ----------------
+-- Can look at dashboards, gates, scans and incidents but cannot change anything.
+-- Column-level SELECT: employees.phone (personal data) is NOT visible to viewers.
+GRANT SELECT ON cards, gates, access_logs, incidents TO gs_viewer;
+GRANT SELECT (emp_id, name, department) ON employees TO gs_viewer;
+GRANT EXECUTE ON FUNCTION
+      fn_authorized_count(INT, INT),
+      fn_compute_severity(INT, INT),
+      fn_gate_risk_summary()
+      TO gs_viewer;
+-- NOTE: viewers get NO INSERT / UPDATE / DELETE and NO procedures.

@@ -11,7 +11,7 @@ import { Badge, ConfirmDialog, DataTable, Field, Modal, Notice, PageHeader, Sear
 interface Summary { by_status: { ack_status: string; alert_type: string; count: number }[] }
 
 export default function AlertsPage() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, canWrite } = useAuth();
   const [status, setStatus] = useState("PENDING");
   const [type, setType] = useState("");
   const [severity, setSeverity] = useState("");
@@ -104,7 +104,7 @@ export default function AlertsPage() {
       key: "actions", label: "", sortable: false, className: "text-right",
       render: (a) => (
         <div className="flex justify-end gap-1">
-          {a.ack_status === "PENDING" && <button className="btn-secondary px-2 py-1" onClick={() => { setAckFor(a); setComment(""); }}>Acknowledge</button>}
+          {canWrite && a.ack_status === "PENDING" && <button className="btn-secondary px-2 py-1" onClick={() => { setAckFor(a); setComment(""); }}>Acknowledge</button>}
           {isAdmin && a.ack_status === "ACKNOWLEDGED" && <button className="btn-ghost" onClick={() => reopen(a)}>Reopen</button>}
           {isAdmin && <button className="btn-ghost" onClick={() => { setEditing(a); setForm({ incident_id: String(a.incident_id), alert_type: a.alert_type, message: a.message }); setFormErr(null); setOpen(true); }}>Edit</button>}
           {isAdmin && <button className="btn-ghost text-rose-600" onClick={() => setToDelete(a)}>Delete</button>}

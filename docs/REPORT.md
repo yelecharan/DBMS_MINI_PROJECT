@@ -17,7 +17,7 @@ GitHub: https://github.com/yelecharan/DBMS_MINI_PROJECT
 
 Tailgating, also called piggy-backing, happens when an unauthorised person follows an authorised employee through a secured gate on a single card scan. GateSentry is a database-driven system for recording and investigating these events. Structured, strongly related data (employees, their access cards, gates, card-scan logs and incidents) is stored in **PostgreSQL**, which enforces it with primary/foreign keys, CHECK and UNIQUE constraints, triggers, stored functions and procedures. Semi-structured, growing investigation data (guard observations, incident reports with attachment lists, and alerts with acknowledgement details) is stored in **MongoDB** collections that reference the SQL incident through `incident_id`.
 
-A guard compares the number of people seen at a gate with the number of authorised scans. The stored function `fn_authorized_count` counts the GRANTED scans at that gate within ±10 seconds. If more people passed through, `fn_report_tailgating` creates an incident with a severity computed from the excess, and the backend stores an observation and an alert in MongoDB. A FastAPI backend serves a Next.js dashboard. Authentication uses PostgreSQL login roles, and role-based access control (Administrator / Security Staff) is enforced both by the API and by PostgreSQL GRANTs through `SET LOCAL ROLE`. No machine learning or CCTV is used. Observations are entered by hand or simulated.
+A guard compares the number of people seen at a gate with the number of authorised scans. The stored function `fn_authorized_count` counts the GRANTED scans at that gate within ±10 seconds. If more people passed through, `fn_report_tailgating` creates an incident with a severity computed from the excess, and the backend stores an observation and an alert in MongoDB. A FastAPI backend serves a Next.js dashboard. Authentication uses PostgreSQL login roles, and role-based access control with three roles (Administrator, Security Staff and a read-only Viewer) is enforced both by the API and by PostgreSQL GRANTs through `SET LOCAL ROLE`. No machine learning or CCTV is used. Observations are entered by hand or simulated.
 
 ## 4. Tech Stack
 
@@ -207,15 +207,29 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON employees, cards, gates, access_logs, in
 GRANT SELECT ON employees, cards, gates, access_logs, incidents TO gs_security;
 GRANT INSERT ON access_logs, incidents TO gs_security;
 GRANT UPDATE (status) ON incidents TO gs_security;          -- column-level privilege
+CREATE ROLE gs_viewer NOLOGIN;                              -- limited, read-only user
+GRANT SELECT ON cards, gates, access_logs, incidents TO gs_viewer;
+GRANT SELECT (emp_id, name, department) ON employees TO gs_viewer;   -- phone hidden
 -- created by init_db.py with passwords from .env (stored as SCRAM-SHA-256 hashes):
 CREATE ROLE admin LOGIN PASSWORD '***' IN ROLE gs_admin;
 CREATE ROLE guard LOGIN PASSWORD '***' IN ROLE gs_security;
+CREATE ROLE viewer LOGIN PASSWORD '***' IN ROLE gs_viewer;
 CREATE ROLE gatesentry_app LOGIN NOINHERIT PASSWORD '***';
-GRANT gs_admin, gs_security TO gatesentry_app WITH INHERIT FALSE, SET TRUE;
+GRANT gs_admin, gs_security, gs_viewer TO gatesentry_app WITH INHERIT FALSE, SET TRUE;
 -- per request, inside the transaction:
 SET LOCAL ROLE gs_security;
 DELETE FROM incidents WHERE incident_id = 1;   -- ERROR: permission denied for table incidents
+SET LOCAL ROLE gs_viewer;
+SELECT phone FROM employees;                   -- ERROR: permission denied for table employees
 ```
+
+| Action | Admin | Security staff | Viewer |
+|---|:-:|:-:|:-:|
+| View dashboard, gates, cards, scans, incidents, MongoDB data | ✅ | ✅ | ✅ |
+| See employee phone numbers | ✅ | ✅ | ❌ (column-level GRANT) |
+| Record scans, report tailgating, add observations/reports, acknowledge alerts | ✅ | ✅ | ❌ |
+| Change incident status | ✅ | ✅ (`UPDATE(status)` only) | ❌ |
+| Create/edit/delete employees, cards, gates; delete any record; manage alerts | ✅ | ❌ | ❌ |
 
 ## 6. NoSQL (MongoDB) – Database Commands
 
@@ -332,18 +346,20 @@ The screenshots in `docs/screenshots/` were captured from the running applicatio
 | Incident detail (SQL + MongoDB) ![](screenshots/incident_detail.png) | Observations + aggregation ![](screenshots/observations.png) |
 | Reports ![](screenshots/reports.png) | Alerts ![](screenshots/alerts.png) |
 | Query Lab (recursive CTE) ![](screenshots/query_lab.png) | Incidents (security staff) ![](screenshots/security_incidents.png) |
+| Employees (viewer: phone hidden) ![](screenshots/viewer_employees.png) | Incident detail (viewer: read-only) ![](screenshots/viewer_incident_detail.png) |
 
 *Add your own pgAdmin 4 (tables, triggers, roles) and MongoDB Compass (collections, validation, indexes) screenshots and VS Code code screenshots here before you submit.*
 
 Test run (`pytest`, against the real PostgreSQL 18 and MongoDB servers):
 ```
-91 passed in 4.7s
+114 passed in 4.8s
   test_1_connectivity.py            8   PostgreSQL/MongoDB connection, tables, FKs, collections, validators, indexes
   test_2_sql_constraints.py        10   UNIQUE, CHECK, FK, NOT NULL, RESTRICT, total participation
   test_3_functions_triggers.py     16   all triggers, functions, procedures
-  test_4_api_sql.py                29   CRUD via API, filters, every report query, dashboard
+  test_4_api_sql.py                30   CRUD via API, filters, every report query, dashboard
   test_5_auth_rbac.py              19   login, JWT, 403s, database-level privilege enforcement
   test_6_mongo_and_integration.py   9   validator, CRUD, $push/$pull, ack, aggregation, SQL↔Mongo
+  test_7_viewer_role.py            22   viewer can read, cannot write (API 403 + PostgreSQL permission denied)
 ```
 
 ## 9. Evaluation Rubric – Completion Status
@@ -361,7 +377,7 @@ Test run (`pytest`, against the real PostgreSQL 18 and MongoDB servers):
 | 9 | NoSQL features – RUD | 7 | ✅ Complete | find with filters/sort/text search, updateOne/$push/$pull/$addToSet, deleteOne/deleteMany, aggregation with $group/$lookup/$unwind/$facet |
 | 10 | Next.js interface | 3 | ✅ Complete | 10 required pages + Query Lab, search/filter/sort, validation, confirmation dialogs, status badges |
 | 11 | Backend/API and DB integration | 2 | ✅ Complete | FastAPI connected to both real servers, SQL↔Mongo integration |
-| 12 | Authentication (frontend) + ≥2 roles + RBAC in database | 4 | ✅ Complete | login/logout, JWT, `gs_admin` / `gs_security` GRANTs incl. column-level, `SET LOCAL ROLE` |
+| 12 | Authentication (frontend) + ≥2 roles + RBAC in database | 4 | ✅ Complete | login/logout, JWT, 3 roles `gs_admin` / `gs_security` / `gs_viewer` with GRANTs incl. column-level, `SET LOCAL ROLE` |
 | 13 | Documentation, Git/GitHub | 2 | ✅ Complete | README.md, this report, GitHub repository |
 | 14 | Originality, individual contribution, viva | 4 | ⏳ Team | demonstrated during viva |
 

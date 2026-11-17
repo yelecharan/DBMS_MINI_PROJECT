@@ -15,7 +15,7 @@ interface Log {
 interface Gate { gate_id: number; gate_name: string; status: string }
 
 export default function AccessLogsPage() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, canWrite } = useAuth();
   const [search, setSearch] = useState("");
   const [gate, setGate] = useState("");
   const [result, setResult] = useState("");
@@ -77,7 +77,7 @@ export default function AccessLogsPage() {
       key: "actions", label: "", sortable: false, className: "text-right",
       render: (l) => (
         <div className="flex justify-end gap-1">
-          <button className="btn-ghost text-orange-600" onClick={() => setTailgate(l)}>Report tailgating</button>
+          {canWrite && <button className="btn-ghost text-orange-600" onClick={() => setTailgate(l)}>Report tailgating</button>}
           {isAdmin && <button className="btn-ghost text-rose-600" onClick={() => setToDelete(l)}>Delete</button>}
         </div>
       ),
@@ -87,7 +87,7 @@ export default function AccessLogsPage() {
   return (
     <>
       <PageHeader title="Access Logs" subtitle="R4 Access_Logs · 4-table JOIN (logs ⋈ cards ⋈ employees ⋈ gates)"
-        actions={<button className="btn-primary" onClick={() => { setScanForm({ card_no: "", gate_id: "" }); setScanErr(null); setScanOpen(true); }}>+ Record card scan</button>} />
+        actions={canWrite && <button className="btn-primary" onClick={() => { setScanForm({ card_no: "", gate_id: "" }); setScanErr(null); setScanOpen(true); }}>+ Record card scan</button>} />
       {msg && <Notice kind="success" onClose={() => setMsg(null)}>{msg}</Notice>}
       {error && <Notice onClose={() => setError(null)}>{error}</Notice>}
       <div className="mb-4 flex flex-wrap items-center gap-2">

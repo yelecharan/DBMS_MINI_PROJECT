@@ -17,7 +17,7 @@ type Form = { incident_id: string; method: string; observed_count: string; autho
 const blank: Form = { incident_id: "", method: METHODS[0], observed_count: "", authorized_count: "", notes: "", tags: "" };
 
 export default function ObservationsPage() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, canWrite } = useAuth();
   const [method, setMethod] = useState("");
   const [gate, setGate] = useState("");
   const [minExcess, setMinExcess] = useState("");
@@ -85,7 +85,7 @@ export default function ObservationsPage() {
       key: "actions", label: "", sortable: false, className: "text-right",
       render: (o) => (
         <div className="flex justify-end gap-1">
-          <button className="btn-ghost" onClick={() => { setEditing(o); setForm({ incident_id: String(o.incident_id), method: o.method, observed_count: String(o.observed_count), authorized_count: String(o.authorized_count), notes: o.notes ?? "", tags: (o.tags ?? []).join(", ") }); setFormErr(null); setOpen(true); }}>Edit</button>
+          {canWrite && <button className="btn-ghost" onClick={() => { setEditing(o); setForm({ incident_id: String(o.incident_id), method: o.method, observed_count: String(o.observed_count), authorized_count: String(o.authorized_count), notes: o.notes ?? "", tags: (o.tags ?? []).join(", ") }); setFormErr(null); setOpen(true); }}>Edit</button>}
           {isAdmin && <button className="btn-ghost text-rose-600" onClick={() => setToDelete(o)}>Delete</button>}
         </div>
       ),
@@ -95,7 +95,7 @@ export default function ObservationsPage() {
   return (
     <>
       <PageHeader title="Observations" subtitle="MongoDB collection Observations · head-counts compared with authorised scans"
-        actions={<button className="btn-primary" onClick={() => { setEditing(null); setForm(blank); setFormErr(null); setOpen(true); }}>+ Record observation</button>} />
+        actions={canWrite && <button className="btn-primary" onClick={() => { setEditing(null); setForm(blank); setFormErr(null); setOpen(true); }}>+ Record observation</button>} />
       {msg && <Notice kind="success" onClose={() => setMsg(null)}>{msg}</Notice>}
       {error && <Notice onClose={() => setError(null)}>{error}</Notice>}
 

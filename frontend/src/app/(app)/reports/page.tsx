@@ -11,7 +11,7 @@ import { ConfirmDialog, Field, Modal, Notice, PageHeader, SearchBox, Select, use
 const FILE_TYPES = ["application/pdf", "image/jpeg", "image/png", "text/plain"];
 
 export default function ReportsPage() {
-  const { isAdmin, user } = useAuth();
+  const { isAdmin, user, canWrite } = useAuth();
   const [search, setSearch] = useState("");
   const [incident, setIncident] = useState("");
   const [order, setOrder] = useState("desc");
@@ -97,7 +97,7 @@ export default function ReportsPage() {
   return (
     <>
       <PageHeader title="Incident Reports" subtitle="MongoDB collection Report · nested reported_by document, attachments array, full-text index"
-        actions={<button className="btn-primary" onClick={() => { setEditing(null); setForm({ incident_id: "", description: "", file_name: "", file_type: FILE_TYPES[0] }); setFormErr(null); setOpen(true); }}>+ New report</button>} />
+        actions={canWrite && <button className="btn-primary" onClick={() => { setEditing(null); setForm({ incident_id: "", description: "", file_name: "", file_type: FILE_TYPES[0] }); setFormErr(null); setOpen(true); }}>+ New report</button>} />
       {msg && <Notice kind="success" onClose={() => setMsg(null)}>{msg}</Notice>}
       {error && <Notice onClose={() => setError(null)}>{error}</Notice>}
       <div className="mb-4 flex flex-wrap gap-2">

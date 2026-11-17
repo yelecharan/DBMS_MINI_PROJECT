@@ -55,7 +55,7 @@ export default function LoginPage() {
           <button className="btn-primary w-full" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
         </form>
         <p className="mt-6 text-center text-xs text-slate-400">
-          Accounts are PostgreSQL login roles (admin → gs_admin, security staff → gs_security).
+          Accounts are PostgreSQL login roles (admin → gs_admin, security staff → gs_security, viewer → gs_viewer).
         </p>
       </div>
     </main>

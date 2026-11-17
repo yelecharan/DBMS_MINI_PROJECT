@@ -194,12 +194,20 @@ WHERE trigger_schema = 'public'
 GROUP BY event_object_table, trigger_name, action_timing
 ORDER BY 1, 2"""},
     "rbac_privileges": {
-        "title": "Catalog - database privileges of gs_admin / gs_security", "category": "RBAC",
+        "title": "Catalog - table privileges of gs_admin / gs_security / gs_viewer", "category": "RBAC",
         "sql": """SELECT grantee, table_name, string_agg(privilege_type, ', ' ORDER BY privilege_type) AS privileges
 FROM information_schema.role_table_grants
-WHERE grantee IN ('gs_admin','gs_security')
+WHERE grantee IN ('gs_admin','gs_security','gs_viewer')
 GROUP BY grantee, table_name
 ORDER BY grantee, table_name"""},
+    "rbac_column_privileges": {
+        "title": "Catalog - column-level privileges (viewer cannot read phone)", "category": "RBAC",
+        "sql": """SELECT grantee, table_name, column_name, privilege_type
+FROM information_schema.column_privileges
+WHERE grantee IN ('gs_security','gs_viewer')
+  AND (grantee = 'gs_viewer' OR privilege_type = 'UPDATE')
+  AND table_name IN ('employees','incidents')
+ORDER BY grantee, table_name, column_name"""},
 }
 
 MONGO_PIPELINES: dict[str, dict] = {

@@ -4,7 +4,7 @@ export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000
 const TOKEN_KEY = "gatesentry_token";
 const USER_KEY = "gatesentry_user";
 
-export type Role = "admin" | "security";
+export type Role = "admin" | "security" | "viewer";
 export interface User {
   username: string;
   role: Role;

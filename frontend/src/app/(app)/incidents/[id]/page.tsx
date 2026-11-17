@@ -12,7 +12,7 @@ interface Detail { incident: Incident; observations: Observation[]; reports: Rep
 
 export default function IncidentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { user } = useAuth();
+  const { user, canWrite } = useAuth();
   const { data, loading, error, reload, setError } = useApi<Detail>(`/api/incidents/${id}`);
   const [msg, setMsg] = useState<string | null>(null);
   const [repOpen, setRepOpen] = useState(false);
@@ -78,8 +78,8 @@ export default function IncidentDetailPage({ params }: { params: Promise<{ id: s
       <PageHeader title={`Incident #${i.incident_id}`} subtitle="PostgreSQL row + every MongoDB document referencing this incident_id"
         actions={<>
           <Link href="/incidents" className="btn-secondary">← All incidents</Link>
-          <button className="btn-secondary" onClick={() => { setObs({ method: METHODS[0], observed_count: "", authorized_count: "", notes: "" }); setFormErr(null); setObsOpen(true); }}>+ Observation</button>
-          <button className="btn-primary" onClick={() => { setRep({ description: "", file_name: "", file_type: "application/pdf" }); setFormErr(null); setRepOpen(true); }}>+ Incident report</button>
+          {canWrite && <button className="btn-secondary" onClick={() => { setObs({ method: METHODS[0], observed_count: "", authorized_count: "", notes: "" }); setFormErr(null); setObsOpen(true); }}>+ Observation</button>}
+          {canWrite && <button className="btn-primary" onClick={() => { setRep({ description: "", file_name: "", file_type: "application/pdf" }); setFormErr(null); setRepOpen(true); }}>+ Incident report</button>}
         </>} />
       {msg && <Notice kind="success" onClose={() => setMsg(null)}>{msg}</Notice>}
       {error && <Notice onClose={() => setError(null)}>{error}</Notice>}
@@ -135,7 +135,7 @@ export default function IncidentDetailPage({ params }: { params: Promise<{ id: s
                 <div className="flex items-center justify-between"><Badge value={a.alert_type} /><Badge value={a.ack_status} /></div>
                 <p className="mt-2">{a.message}</p>
                 <p className="mt-1 text-xs text-slate-400">{fmtDateTime(a.alert_time)}{a.acknowledged && ` · ack by ${a.acknowledged.by}`}</p>
-                {a.ack_status === "PENDING" && <button className="btn-secondary mt-2" onClick={() => ack(a)}>Acknowledge</button>}
+                {canWrite && a.ack_status === "PENDING" && <button className="btn-secondary mt-2" onClick={() => ack(a)}>Acknowledge</button>}
               </li>
             ))}
           </ul>

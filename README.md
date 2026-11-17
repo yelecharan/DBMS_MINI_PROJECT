@@ -31,7 +31,7 @@ Next.js (localhost:3000)  ──HTTP + JWT──▶  FastAPI (localhost:8000)
    + triggers, functions, procedures, roles
 ```
 
-* **Database-level RBAC.** Users are PostgreSQL login roles (`admin` ∈ `gs_admin`, `guard` ∈ `gs_security`). PostgreSQL stores their passwords as SCRAM-SHA-256 hashes and checks them at login. The API connects as `gatesentry_app`, which has **no privileges of its own**. Every request runs `SET LOCAL ROLE gs_admin | gs_security`, so the GRANTs in `03_roles.sql` decide what a user can do, including the column-level `UPDATE(status)` grant on incidents.
+* **Database-level RBAC.** Users are PostgreSQL login roles (`admin` ∈ `gs_admin`, `guard` ∈ `gs_security`, `viewer` ∈ `gs_viewer`). PostgreSQL stores their passwords as SCRAM-SHA-256 hashes and checks them at login. The API connects as `gatesentry_app`, which has **no privileges of its own**. Every request runs `SET LOCAL ROLE gs_admin | gs_security | gs_viewer`, so the GRANTs in `03_roles.sql` decide what a user can do, including the column-level `UPDATE(status)` grant on incidents.
 * **Linking SQL and NoSQL.** MongoDB documents reference `incidents.incident_id`. The backend checks that the incident exists before it inserts a document. When an incident is deleted, the backend also deletes its MongoDB documents. Reporting tailgating writes the SQL incident and the MongoDB observation and alert inside one SQL transaction, so if MongoDB fails the incident is rolled back.
 
 ## Repository layout
@@ -59,7 +59,7 @@ DBMS/
 │   │   └── routers/                   employees, cards, gates, access_logs, incidents,
 │   │                                  observations, reports, alerts, analytics
 │   ├── scripts/init_db.py             creates/resets both databases and loads sample data
-│   └── tests/                         91 pytest tests against the real servers
+│   └── tests/                         114 pytest tests against the real servers
 ├── frontend/                          Next.js app (tree in docs/REPORT.md §7)
 └── docs/
     ├── REPORT.md                      university report
@@ -103,6 +103,7 @@ Open http://localhost:3000.
 |---|---|---|
 | `admin` | `Admin@123` | Administrator (`gs_admin`): full CRUD on all tables and collections |
 | `guard` | `Guard@123` | Security staff (`gs_security`): view, record scans and observations, write reports, update incident status, acknowledge alerts |
+| `viewer` | `Viewer@123` | Viewer (`gs_viewer`): limited user, read-only everywhere and cannot see employee phone numbers (column-level GRANT) |
 
 These are demo accounts. You can change them in `backend/.env` and then run `init_db` again.
 
@@ -114,5 +115,5 @@ cd backend
 The tests cover connectivity, constraints, triggers, functions and procedures, SQL CRUD, every report query, authentication, RBAC (API and database level), MongoDB CRUD and aggregation, and SQL↔MongoDB integration. They run against the real servers and clean up after themselves.
 
 ### 4. Look at the data in the GUIs
-* **pgAdmin 4:** Servers → PostgreSQL 18 → Databases → `gatesentry` → Schemas → public → Tables / Functions / Trigger Functions. Login/Group Roles show `admin`, `guard`, `gatesentry_app`, `gs_admin`, `gs_security`.
+* **pgAdmin 4:** Servers → PostgreSQL 18 → Databases → `gatesentry` → Schemas → public → Tables / Functions / Trigger Functions. Login/Group Roles show `admin`, `guard`, `viewer`, `gatesentry_app`, `gs_admin`, `gs_security`, `gs_viewer`.
 * **MongoDB Compass:** connect to `mongodb://localhost:27017` → `gatesentry` → `Observations`, `Report`, `Alerts`. The Validation and Indexes tabs show the schemas and indexes. `database/mongodb/mongo_commands.js` can be pasted into Compass's built-in **MONGOSH** shell.

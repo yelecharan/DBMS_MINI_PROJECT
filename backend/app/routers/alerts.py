@@ -4,7 +4,7 @@ import re
 from fastapi import APIRouter, Depends, HTTPException
 from pymongo import ASCENDING, DESCENDING
 
-from ..auth import CurrentUser, get_current_user, require_admin
+from ..auth import CurrentUser, get_current_user, require_admin, require_staff
 from ..db import mongo_db
 from ..deps import ensure_incident_exists, not_found
 from ..mongo_setup import ALERTS, OBSERVATIONS
@@ -69,7 +69,7 @@ def create_alert(body: AlertIn, user: CurrentUser = Depends(require_admin)):
 
 
 @router.patch("/{alert_id}/ack")
-def acknowledge(alert_id: str, body: AckIn, user: CurrentUser = Depends(get_current_user)):
+def acknowledge(alert_id: str, body: AckIn, user: CurrentUser = Depends(require_staff)):
     res = col.find_one_and_update(
         {"alert_id": alert_id, "ack_status": "PENDING"},
         {"$set": {"ack_status": "ACKNOWLEDGED",

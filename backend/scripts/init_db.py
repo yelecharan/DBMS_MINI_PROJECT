@@ -58,18 +58,20 @@ def setup_postgres() -> list[dict]:
         upsert_login(settings.PG_APP_USER, settings.PG_APP_PASSWORD, "NOINHERIT")
         upsert_login(settings.DEMO_ADMIN_USER, settings.DEMO_ADMIN_PASSWORD)
         upsert_login(settings.DEMO_SECURITY_USER, settings.DEMO_SECURITY_PASSWORD)
+        upsert_login(settings.DEMO_VIEWER_USER, settings.DEMO_VIEWER_PASSWORD)
 
         ident = sql.Identifier
-        conn.execute(sql.SQL("GRANT gs_admin, gs_security TO {} WITH INHERIT FALSE, SET TRUE")
+        conn.execute(sql.SQL("GRANT gs_admin, gs_security, gs_viewer TO {} WITH INHERIT FALSE, SET TRUE")
                      .format(ident(settings.PG_APP_USER)))
         conn.execute(sql.SQL("GRANT gs_admin TO {}").format(ident(settings.DEMO_ADMIN_USER)))
         conn.execute(sql.SQL("GRANT gs_security TO {}").format(ident(settings.DEMO_SECURITY_USER)))
+        conn.execute(sql.SQL("GRANT gs_viewer TO {}").format(ident(settings.DEMO_VIEWER_USER)))
         conn.execute(sql.SQL("REVOKE CONNECT ON DATABASE {} FROM PUBLIC").format(ident(db)))
-        conn.execute(sql.SQL("GRANT CONNECT ON DATABASE {} TO {}, {}, {}").format(
+        conn.execute(sql.SQL("GRANT CONNECT ON DATABASE {} TO {}, {}, {}, {}").format(
             ident(db), ident(settings.PG_APP_USER), ident(settings.DEMO_ADMIN_USER),
-            ident(settings.DEMO_SECURITY_USER)))
+            ident(settings.DEMO_SECURITY_USER), ident(settings.DEMO_VIEWER_USER)))
         print("[pg] login roles ready:", settings.DEMO_ADMIN_USER, settings.DEMO_SECURITY_USER,
-              settings.PG_APP_USER)
+              settings.DEMO_VIEWER_USER, settings.PG_APP_USER)
 
         conn.execute((SQL_DIR / SQL_FILES[3]).read_text(encoding="utf-8"))
         print("[pg] executed 04_seed.sql")

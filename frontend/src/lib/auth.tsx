@@ -9,6 +9,8 @@ interface AuthState {
   login: (username: string, password: string) => Promise<User>;
   logout: () => Promise<void>;
   isAdmin: boolean;
+  /** admin or security staff - the viewer role is read-only */
+  canWrite: boolean;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -45,7 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, ready, login, logout, isAdmin: user?.role === "admin" }}>
+    <AuthContext.Provider value={{ user, ready, login, logout, isAdmin: user?.role === "admin", canWrite: user?.role === "admin" || user?.role === "security" }}>
       {children}
     </AuthContext.Provider>
   );

@@ -16,8 +16,12 @@ SORTS = {"emp_id": "e.emp_id", "name": "e.name", "department": "e.department",
 def list_employees(search: str | None = None, department: str | None = None,
                    sort: str | None = None, order: str | None = None,
                    user: CurrentUser = Depends(get_current_user)):
+    # viewers have no SELECT privilege on employees.phone (column-level GRANT)
+    can_see_phone = user.role != "viewer"
+    phone_col = "e.phone" if can_see_phone else "NULL::varchar AS phone"
+    phone_search = "OR e.phone LIKE '%' || :search || '%'" if can_see_phone else ""
     sql = f"""
-        SELECT e.emp_id, e.name, e.department, e.phone,
+        SELECT e.emp_id, e.name, e.department, {phone_col},
                COUNT(DISTINCT c.card_id)                                   AS card_count,
                COUNT(DISTINCT c.card_id) FILTER (WHERE c.status = 'ACTIVE') AS active_cards,
                COUNT(a.scan_id)                                            AS scan_count,
@@ -26,9 +30,9 @@ def list_employees(search: str | None = None, department: str | None = None,
         LEFT JOIN cards c       ON c.emp_id  = e.emp_id
         LEFT JOIN access_logs a ON a.card_id = c.card_id
         WHERE (CAST(:search AS text) IS NULL OR e.name ILIKE '%' || :search || '%'
-               OR e.phone LIKE '%' || :search || '%')
+               {phone_search})
           AND (CAST(:dept AS text) IS NULL OR e.department = :dept)
-        GROUP BY e.emp_id
+        GROUP BY e.emp_id, e.name, e.department
         {order_by(sort, order, SORTS, "e.emp_id")}"""
     with pg_session(user.role) as conn:
         return rows(conn.execute(text(sql), {"search": search or None, "dept": department or None}))

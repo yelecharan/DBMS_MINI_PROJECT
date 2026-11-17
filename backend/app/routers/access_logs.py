@@ -3,7 +3,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
 
-from ..auth import CurrentUser, get_current_user, require_admin
+from ..auth import CurrentUser, get_current_user, require_admin, require_staff
 from ..db import pg_session, rows
 from ..deps import not_found, order_by
 from ..schemas import ScanIn
@@ -44,7 +44,7 @@ def list_logs(search: str | None = None, gate_id: int | None = None,
 
 
 @router.post("", status_code=201)
-def record_scan(body: ScanIn, user: CurrentUser = Depends(get_current_user)):
+def record_scan(body: ScanIn, user: CurrentUser = Depends(require_staff)):
     """Admin and security staff may record scans. trg_validate_access_log decides GRANTED/DENIED."""
     with pg_session(user.role) as conn:
         card = conn.execute(text("SELECT card_id FROM cards WHERE card_no = :n"),

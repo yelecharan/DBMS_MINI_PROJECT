@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends
 from pymongo import ASCENDING, DESCENDING
 
-from ..auth import CurrentUser, get_current_user, require_admin
+from ..auth import CurrentUser, get_current_user, require_admin, require_staff
 from ..db import mongo_db
 from ..deps import ensure_incident_exists, not_found
 from ..mongo_setup import OBSERVATIONS
@@ -56,7 +56,7 @@ def observation_stats(user: CurrentUser = Depends(get_current_user)):
 
 
 @router.post("", status_code=201)
-def create_observation(body: ObservationIn, user: CurrentUser = Depends(get_current_user)):
+def create_observation(body: ObservationIn, user: CurrentUser = Depends(require_staff)):
     inc = ensure_incident_exists(user.role, body.incident_id)
     doc = {
         "obs_id": new_id("OBS"), "incident_id": body.incident_id, "method": body.method,
@@ -74,7 +74,7 @@ def create_observation(body: ObservationIn, user: CurrentUser = Depends(get_curr
 
 @router.put("/{obs_id}")
 def update_observation(obs_id: str, body: ObservationUpdate,
-                       user: CurrentUser = Depends(get_current_user)):
+                       user: CurrentUser = Depends(require_staff)):
     res = col.find_one_and_update(
         {"obs_id": obs_id},
         {"$set": {"method": body.method, "observed_count": body.observed_count,

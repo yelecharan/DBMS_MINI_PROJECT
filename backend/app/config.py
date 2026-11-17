@@ -30,6 +30,8 @@ class Settings:
     DEMO_ADMIN_PASSWORD = os.getenv("DEMO_ADMIN_PASSWORD", "")
     DEMO_SECURITY_USER = os.getenv("DEMO_SECURITY_USER", "guard")
     DEMO_SECURITY_PASSWORD = os.getenv("DEMO_SECURITY_PASSWORD", "")
+    DEMO_VIEWER_USER = os.getenv("DEMO_VIEWER_USER", "viewer")
+    DEMO_VIEWER_PASSWORD = os.getenv("DEMO_VIEWER_PASSWORD", "")
 
     MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
     MONGO_DB = os.getenv("MONGO_DB", "gatesentry")

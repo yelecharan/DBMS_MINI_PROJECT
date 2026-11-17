@@ -86,8 +86,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-3">
             <div className="text-right">
               <p className="text-sm font-medium">{user.username}</p>
-              <p className={`text-xs font-semibold ${user.role === "admin" ? "text-indigo-600" : "text-emerald-600"}`}>
-                {user.role === "admin" ? "Administrator" : "Security Staff"}
+              <p className={`text-xs font-semibold ${user.role === "admin" ? "text-indigo-600" : user.role === "security" ? "text-emerald-600" : "text-slate-500"}`}>
+                {user.role === "admin" ? "Administrator" : user.role === "security" ? "Security Staff" : "Viewer (read-only)"}
               </p>
             </div>
             <button

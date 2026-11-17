@@ -3,7 +3,7 @@ This router is where the two databases are tied together through incident_id."""
 from fastapi import APIRouter, Depends
 from sqlalchemy import text
 
-from ..auth import CurrentUser, get_current_user, require_admin
+from ..auth import CurrentUser, get_current_user, require_admin, require_staff
 from ..db import mongo_db, pg_session, rows
 from ..deps import mongo_counts_by_incident, not_found, order_by
 from ..mongo_setup import ALERTS, OBSERVATIONS, REPORT
@@ -71,7 +71,7 @@ def incident_detail(incident_id: int, user: CurrentUser = Depends(get_current_us
 
 
 @router.post("/report-tailgating", status_code=201)
-def report_tailgating(body: TailgatingIn, user: CurrentUser = Depends(get_current_user)):
+def report_tailgating(body: TailgatingIn, user: CurrentUser = Depends(require_staff)):
     """Security staff / admin: observed people > authorised scans.
 
     1. PostgreSQL : fn_report_tailgating() validates and inserts the incident
@@ -126,7 +126,7 @@ def update_incident(incident_id: int, body: IncidentUpdate, user: CurrentUser = 
 
 @router.patch("/{incident_id}/status")
 def update_status(incident_id: int, body: IncidentStatusIn,
-                  user: CurrentUser = Depends(get_current_user)):
+                  user: CurrentUser = Depends(require_staff)):
     """Security staff hold a column-level UPDATE(status) privilege only."""
     with pg_session(user.role) as conn:
         res = rows(conn.execute(text("""

@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pymongo import ASCENDING, DESCENDING
 
-from ..auth import CurrentUser, get_current_user, require_admin
+from ..auth import CurrentUser, get_current_user, require_admin, require_staff
 from ..db import mongo_db
 from ..deps import ensure_incident_exists, not_found
 from ..mongo_setup import REPORT
@@ -49,7 +49,7 @@ def report_stats(user: CurrentUser = Depends(get_current_user)):
 
 
 @router.post("", status_code=201)
-def create_report(body: ReportIn, user: CurrentUser = Depends(get_current_user)):
+def create_report(body: ReportIn, user: CurrentUser = Depends(require_staff)):
     ensure_incident_exists(user.role, body.incident_id)
     doc = {
         "report_id": new_id("RPT"), "incident_id": body.incident_id,
@@ -64,7 +64,7 @@ def create_report(body: ReportIn, user: CurrentUser = Depends(get_current_user))
 
 
 @router.put("/{report_id}")
-def update_report(report_id: str, body: ReportUpdate, user: CurrentUser = Depends(get_current_user)):
+def update_report(report_id: str, body: ReportUpdate, user: CurrentUser = Depends(require_staff)):
     existing = col.find_one({"report_id": report_id}, {"reported_by": 1})
     if not existing:
         raise not_found("Report", report_id)
@@ -77,7 +77,7 @@ def update_report(report_id: str, body: ReportUpdate, user: CurrentUser = Depend
 
 
 @router.post("/{report_id}/attachments")
-def add_attachment(report_id: str, body: Attachment, user: CurrentUser = Depends(get_current_user)):
+def add_attachment(report_id: str, body: Attachment, user: CurrentUser = Depends(require_staff)):
     res = col.find_one_and_update({"report_id": report_id},
                                   {"$push": {"attachments": body.model_dump()},
                                    "$set": {"updated_at": utcnow()}},
@@ -88,7 +88,7 @@ def add_attachment(report_id: str, body: Attachment, user: CurrentUser = Depends
 
 
 @router.delete("/{report_id}/attachments/{file_name}")
-def remove_attachment(report_id: str, file_name: str, user: CurrentUser = Depends(get_current_user)):
+def remove_attachment(report_id: str, file_name: str, user: CurrentUser = Depends(require_staff)):
     res = col.find_one_and_update({"report_id": report_id},
                                   {"$pull": {"attachments": {"file_name": file_name}}},
                                   projection={"_id": 0}, return_document=True)

@@ -7,7 +7,7 @@ import { useApi } from "@/lib/hooks";
 import { ConfirmDialog, DataTable, Field, Modal, Notice, PageHeader, SearchBox, Select, useDebounced, type Column } from "@/components/ui";
 
 interface Employee {
-  emp_id: number; name: string; department: string; phone: string;
+  emp_id: number; name: string; department: string; phone: string | null;
   card_count: number; active_cards: number; scan_count: number; card_numbers: string | null;
 }
 type Form = { name: string; department: string; phone: string; card_no: string; expiry_date: string };
@@ -43,7 +43,7 @@ export default function EmployeesPage() {
   const [msg, setMsg] = useState<string | null>(null);
 
   const openNew = () => { setEditing(null); setForm({ ...empty, expiry_date: nextYear() }); setFormErr(null); setOpen(true); };
-  const openEdit = (e: Employee) => { setEditing(e); setForm({ ...empty, name: e.name, department: e.department, phone: e.phone }); setFormErr(null); setOpen(true); };
+  const openEdit = (e: Employee) => { setEditing(e); setForm({ ...empty, name: e.name, department: e.department, phone: e.phone ?? "" }); setFormErr(null); setOpen(true); };
 
   async function save(ev: React.FormEvent) {
     ev.preventDefault();
@@ -96,7 +96,7 @@ export default function EmployeesPage() {
     { key: "emp_id", label: "ID" },
     { key: "name", label: "Name", render: (e) => <span className="font-medium">{e.name}</span> },
     { key: "department", label: "Department" },
-    { key: "phone", label: "Phone" },
+    { key: "phone", label: "Phone", render: (e) => e.phone ?? <span className="text-xs italic text-slate-400">hidden</span> },
     { key: "card_numbers", label: "Cards", render: (e) => <span className="text-xs">{e.card_numbers ?? "—"} <span className="text-slate-400">({e.active_cards} active)</span></span>, sortValue: (e) => e.card_count },
     { key: "scan_count", label: "Scans" },
   ];

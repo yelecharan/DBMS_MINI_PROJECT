@@ -12,7 +12,7 @@ import { Badge, ConfirmDialog, DataTable, Field, Modal, Notice, PageHeader, Sear
 const SEV_ORDER: Record<string, number> = { LOW: 1, MEDIUM: 2, HIGH: 3, CRITICAL: 4 };
 
 function IncidentsInner() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, canWrite } = useAuth();
   const params = useSearchParams();
   const [search, setSearch] = useState(params.get("search") ?? "");
   const [severity, setSeverity] = useState("");
@@ -75,7 +75,7 @@ function IncidentsInner() {
     { key: "severity", label: "Severity", render: (i) => <Badge value={i.severity} />, sortValue: (i) => SEV_ORDER[i.severity] },
     {
       key: "status", label: "Status",
-      render: (i) => (
+      render: (i) => !canWrite ? <Badge value={i.status} /> : (
         <select className="rounded border border-slate-200 bg-white px-1.5 py-1 text-xs" value={i.status} onChange={(e) => changeStatus(i, e.target.value)} aria-label="Change status">
           {STATUSES.map((s) => <option key={s} value={s}>{s.replace("_", " ")}</option>)}
         </select>
@@ -97,7 +97,7 @@ function IncidentsInner() {
   return (
     <>
       <PageHeader title="Incidents" subtitle="R5 Incidents (PostgreSQL) with linked MongoDB documents · new incidents are reported from Access Logs"
-        actions={<Link href="/access-logs" className="btn-primary">+ Report from a scan</Link>} />
+        actions={canWrite && <Link href="/access-logs" className="btn-primary">+ Report from a scan</Link>} />
       {msg && <Notice kind="success" onClose={() => setMsg(null)}>{msg}</Notice>}
       {error && <Notice onClose={() => setError(null)}>{error}</Notice>}
       <div className="mb-4 flex flex-wrap gap-2">
