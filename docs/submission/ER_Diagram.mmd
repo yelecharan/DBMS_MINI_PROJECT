@@ -1,0 +1,37 @@
+erDiagram
+  users ||--o{ incidents : assigned_to
+  users ||--o{ incident_actions : performs
+  sites ||--o{ zones : contains
+  zones ||--o{ zones : parent_of
+  zones ||--o{ gates : contains
+  gates ||--o{ cameras : monitors
+  gates ||--o{ access_events : receives
+  gates ||--o{ gate_sessions : groups
+  gates ||--o{ camera_observations : observes
+  gates ||--o{ incidents : generates
+  employees ||--o{ access_credentials : owns
+  access_credentials ||--o{ access_events : authorizes
+  gate_sessions ||--o{ camera_observations : contains
+  gate_sessions ||--o{ incidents : correlates
+  incidents ||--o{ incident_actions : records
+  incidents ||--o{ evidence_assets : references
+  incidents ||--o{ incident_vector_outbox : queues
+  gates ||--o{ detection_rules : configures
+  users ||--o{ audit_logs : actor
+
+  users { UUID id PK string email UK string role }
+  employees { UUID id PK string employee_code UK string email UK }
+  sites { UUID id PK string site_name UK }
+  zones { UUID id PK UUID site_id FK UUID parent_zone_id FK }
+  gates { UUID id PK UUID zone_id FK string gate_code UK }
+  cameras { UUID id PK UUID gate_id FK string camera_code UK }
+  access_credentials { UUID id PK UUID employee_id FK string credential_hash UK }
+  access_events { UUID id PK UUID gate_id FK UUID credential_id FK string external_event_id UK }
+  gate_sessions { UUID id PK UUID gate_id FK }
+  camera_observations { UUID id PK UUID gate_id FK UUID camera_id FK UUID gate_session_id FK string tracker_id }
+  incidents { UUID id PK UUID gate_id FK UUID gate_session_id FK UUID assigned_to FK }
+  incident_actions { UUID id PK UUID incident_id FK UUID actor_id FK }
+  evidence_assets { UUID id PK UUID incident_id FK }
+  audit_logs { UUID id PK UUID actor_user_id FK }
+  detection_rules { UUID id PK UUID gate_id FK }
+  incident_vector_outbox { UUID event_id PK UUID incident_id FK string status string event_type }
