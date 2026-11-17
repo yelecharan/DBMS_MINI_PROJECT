@@ -1,13 +1,14 @@
 // =====================================================================
 // GateSentry - MongoDB commands (R6 Observations, R7 Report, R8 Alerts)
-// Run in MongoDB Compass -> "MONGOSH" tab, or:  mongosh mongodb://localhost:27017 mongo_commands.js
+// Run in MongoDB Compass -> "Open MongoDB shell": paste one block at a time.
 // The same operations are executed by the FastAPI backend through PyMongo
 // (backend/app/mongo_setup.py and backend/app/routers/{observations,reports,alerts}.py).
 // incident_id is an application-level reference to incidents.incident_id in PostgreSQL.
 // =====================================================================
 
 // ---------- 1. Database creation ----------
-use("gatesentry");
+// switch to the database (run this line first)
+use gatesentry
 
 // ---------- 2. Collection creation with $jsonSchema validation ----------
 // (skips collections that already exist, e.g. created by backend/scripts/init_db.py)

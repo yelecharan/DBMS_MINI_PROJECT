@@ -118,7 +118,7 @@ The tests cover connectivity, constraints, triggers, functions and procedures, S
 
 ### 4. Demo scripts (view tables, insert, update, delete)
 * **PostgreSQL:** in pgAdmin, right-click `gatesentry` → **Query Tool**, open `database/postgres/06_dml_demo.sql` and run it (F5). It lists the 5 tables, counts rows, shows each table's columns and constraints and all data, inserts into every table, runs UPDATE and DELETE, then shows the data again.
-* **MongoDB:** in Compass, connect to `mongodb://localhost:27017`, open **>_ MONGOSH** at the bottom, paste `database/mongodb/mongo_dml_demo.js` and press Enter. It does the same for the 3 collections.
+* **MongoDB:** in Compass, connect to `mongodb://localhost:27017` and click **Open MongoDB shell**. Run `use gatesentry`, then copy the commands in `database/mongodb/mongo_dml_demo.js` **one at a time** and press Enter after each. It covers the same steps for the 3 collections, with one headed insert, update and delete per collection.
 * Both scripts can be run more than once. To go back to the original sample data, run `python -m scripts.init_db` again.
 
 ### 5. Look at the data in the GUIs
