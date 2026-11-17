@@ -1,20 +1,20 @@
-import type { Metadata } from 'next';
-import './globals.css';
-import { AuthProvider } from '@/context/AuthContext';
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import { AuthProvider } from "@/lib/auth";
+import "./globals.css";
+
+const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
+const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'GateSentry | Explainable Office Tailgating Detection System',
-  description: 'Explainable, Privacy-First Office Tailgating Detection and Incident Intelligence Platform',
+  title: "GateSentry – Tailgating Detection",
+  description: "DBMS mini project: PostgreSQL + MongoDB tailgating management system",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className="bg-slate-50 text-slate-900 antialiased min-h-screen">
+      <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}>
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>

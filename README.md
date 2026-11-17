@@ -1,64 +1,118 @@
-# GateSentry
+# GateSentry – Tailgating Detection DBMS
 
-Explainable, privacy-first office tailgating detection and incident intelligence. GateSentry correlates employee badge events with anonymous person-crossing observations. Demo observations are synthetic; the application does not implement facial recognition or a live CCTV inference pipeline.
+A database-driven tailgating management system built as a DBMS mini project.
+An employee scans an authorised access card at a secured gate. If a guard sees **more people walk through than the number of authorised scans**, a suspected tailgating incident is recorded, with observations, reports and alerts.
 
-## Run with Docker Compose
+> No CCTV, computer vision or machine learning. Observations are entered by hand or simulated.
 
-1. Install Docker Desktop and start its engine.
-2. Copy `.env.example` to `.env`. Replace every placeholder with unique, URL-safe secrets; do not commit `.env`.
-3. Run `docker compose up --build` from this directory.
-4. Open the dashboard at [http://localhost:3000](http://localhost:3000), API docs at [http://localhost:8000/docs](http://localhost:8000/docs), and Qdrant health at [http://localhost:6333/healthz](http://localhost:6333/healthz).
+| | |
+|---|---|
+| **Students** | Vilohith Sree Sai Reddy Daggolu (PES1UG24CS535) · Yele Charan (PES1UG25CS856) |
+| **SQL** | PostgreSQL 18, 5 relations: `employees`, `cards`, `gates`, `access_logs`, `incidents` |
+| **NoSQL** | MongoDB 9 Community Server, 3 collections: `Observations`, `Report`, `Alerts` |
+| **Backend** | Python FastAPI, SQLAlchemy + psycopg 3, PyMongo, JWT |
+| **Frontend** | Next.js 15 (App Router), TypeScript, Tailwind CSS 4 |
+| **GUIs** | pgAdmin 4 and MongoDB Compass |
 
-On a new PostgreSQL data volume, Compose applies the SQL schema, functions, procedures, triggers, role grants and runtime login setup in order. The initial DDL contains `DROP` statements and is mounted into PostgreSQL's one-time initialization directory; it runs only when the data volume is empty. Do not delete a populated volume to re-run initialization. Back up existing databases and follow the additive migration steps in [SQL_Commands_Reference.md](docs/submission/SQL_Commands_Reference.md).
+The full university report is in [docs/REPORT.md](docs/REPORT.md). Diagrams are in [docs/er_diagram.png](docs/er_diagram.png) and [docs/relational_schema.png](docs/relational_schema.png).
 
-The app and outbox worker use separate non-superuser PostgreSQL logins. API transactions map authenticated application roles to `gg_admin`, `gg_security` or `gg_auditor`; the auditor role is read-only. The worker uses its own `gg_admin`-mapped login to claim and update outbox rows.
+---
 
-## Local development
+## Architecture
 
-Backend (Python 3.11+):
+```
+Next.js (localhost:3000)  ──HTTP + JWT──▶  FastAPI (localhost:8000)
+                                              │
+                ┌─────────────────────────────┴──────────────────────────────┐
+                ▼                                                            ▼
+   PostgreSQL 18  db "gatesentry"                              MongoDB  db "gatesentry"
+   employees, cards, gates,                                    Observations, Report, Alerts
+   access_logs, incidents                                      (each document has incident_id ──▶ incidents)
+   + triggers, functions, procedures, roles
+```
 
+* **Database-level RBAC.** Users are PostgreSQL login roles (`admin` ∈ `gs_admin`, `guard` ∈ `gs_security`). PostgreSQL stores their passwords as SCRAM-SHA-256 hashes and checks them at login. The API connects as `gatesentry_app`, which has **no privileges of its own**. Every request runs `SET LOCAL ROLE gs_admin | gs_security`, so the GRANTs in `03_roles.sql` decide what a user can do, including the column-level `UPDATE(status)` grant on incidents.
+* **Linking SQL and NoSQL.** MongoDB documents reference `incidents.incident_id`. The backend checks that the incident exists before it inserts a document. When an incident is deleted, the backend also deletes its MongoDB documents. Reporting tailgating writes the SQL incident and the MongoDB observation and alert inside one SQL transaction, so if MongoDB fails the incident is rolled back.
+
+## Repository layout
+
+```
+DBMS/
+├── README.md
+├── .gitignore
+├── database/
+│   ├── postgres/
+│   │   ├── 01_schema.sql              DDL: DROP/CREATE/ALTER TABLE, PK, FK, UNIQUE, CHECK, NOT NULL, DEFAULT, indexes
+│   │   ├── 02_functions_triggers.sql  4 triggers, 5 functions, 2 procedures
+│   │   ├── 03_roles.sql               gs_admin / gs_security group roles and GRANTs
+│   │   ├── 04_seed.sql                sample data (DML INSERT)
+│   │   └── 05_queries.sql             DML, JOINs, nested, correlated, recursive, GROUP BY/HAVING, CTEs
+│   └── mongodb/
+│       └── mongo_commands.js          collection creation, validators, indexes, CRUD, aggregation
+├── backend/
+│   ├── .env.example                   copy to .env (never committed)
+│   ├── requirements.txt
+│   ├── app/
+│   │   ├── main.py                    FastAPI app, auth routes, DB-error → HTTP mapping
+│   │   ├── config.py  db.py  auth.py  deps.py  schemas.py  utils.py
+│   │   ├── mongo_setup.py             $jsonSchema validators + indexes
+│   │   └── routers/                   employees, cards, gates, access_logs, incidents,
+│   │                                  observations, reports, alerts, analytics
+│   ├── scripts/init_db.py             creates/resets both databases and loads sample data
+│   └── tests/                         91 pytest tests against the real servers
+├── frontend/                          Next.js app (tree in docs/REPORT.md §7)
+└── docs/
+    ├── REPORT.md                      university report
+    ├── er_diagram.png  relational_schema.png
+    ├── capture_screenshots.mjs        regenerates docs/screenshots with headless Edge
+    └── screenshots/
+```
+
+## Running locally (Windows)
+
+### Prerequisites
+* PostgreSQL 18 running as a service (port 5432) with access to the `postgres` superuser password
+* MongoDB Community Server running as a service (port 27017). MongoDB Compass alone is only the GUI and is not enough.
+* Python 3.11+ and Node.js 20+
+
+### 1. Backend and databases
 ```powershell
 cd backend
 python -m venv .venv
-.venv\Scripts\Activate.ps1
-pip install -r requirements-cpu.txt
-$env:DATABASE_URL = "sqlite:///./gatesentry.db"
-python -m uvicorn app.main:app --reload --port 8000
+.venv\Scripts\pip install -r requirements.txt
+copy .env.example .env        # then set PG_SUPERUSER_PASSWORD (and JWT_SECRET)
+.venv\Scripts\python -m scripts.init_db
+.venv\Scripts\python -m uvicorn app.main:app --reload --port 8000
 ```
+`init_db` creates the `gatesentry` database, tables, triggers, functions, roles and sample data in PostgreSQL. It also creates the three validated MongoDB collections and their documents. Running it again resets everything to the sample data. If either server can't be reached, it stops with the connection error and does not fall back to anything else.
 
-The CPU requirements pin matching PyTorch/torchaudio/torchvision versions. `all-MiniLM-L6-v2` downloads on first use and produces normalized 384-dimensional embeddings. If it cannot load, semantic operations report an explicit error; there is no token-hash fallback.
+API docs: http://localhost:8000/docs · Health check: http://localhost:8000/api/health
 
-Frontend (Node 20+):
+To switch to **MongoDB Atlas**, set `MONGO_URI=mongodb+srv://<user>:<password>@<cluster>/` in `backend/.env`.
 
+### 2. Frontend
 ```powershell
 cd frontend
-npm ci
+npm install
+copy .env.example .env.local
 npm run dev
 ```
+Open http://localhost:3000.
 
-SQLite is intended for local development and unit tests; PostgreSQL is required to exercise SQL roles, routines and migrations. To run unit tests, use `backend/` as the working directory:
+| Username | Password | Role |
+|---|---|---|
+| `admin` | `Admin@123` | Administrator (`gs_admin`): full CRUD on all tables and collections |
+| `guard` | `Guard@123` | Security staff (`gs_security`): view, record scans and observations, write reports, update incident status, acknowledge alerts |
 
+These are demo accounts. You can change them in `backend/.env` and then run `init_db` again.
+
+### 3. Tests
 ```powershell
-python -m pytest tests/test_backend.py -q
+cd backend
+.venv\Scripts\python -m pytest -v
 ```
+The tests cover connectivity, constraints, triggers, functions and procedures, SQL CRUD, every report query, authentication, RBAC (API and database level), MongoDB CRUD and aggregation, and SQL↔MongoDB integration. They run against the real servers and clean up after themselves.
 
-To run model-backed Qdrant integration tests, start PostgreSQL/Qdrant or a Qdrant server, then set `QDRANT_URL` and run `python -m pytest tests/integration -m integration -q`. The Qdrant client is constrained to the server's supported minor-version range.
-
-## Demo accounts and data safety
-
-In development, an empty database is seeded with:
-
-- `admin@gatesentry.internal` / `AdminPassword2026!`
-- `security@gatesentry.internal` / `SecurityPassword2026!`
-- `auditor@gatesentry.internal` / `AuditorPassword2026!`
-
-These are demo-only credentials; change them before sharing a running instance. Seeding refuses non-empty databases and does not drop tables. The demo reset endpoint is restricted to development and administrator accounts.
-
-For system design, SQL execution order and exact verification results, see [the project audit](docs/PROJECT_AUDIT.md), [the submission report](docs/submission/DBMS_Project_Report.md), and [the test report](docs/submission/Test_Report.md).
-
-Genuine screenshots of the local synthetic-data demo are in [docs/submission/screenshots](docs/submission/screenshots/).
-
-## Team
-
-- Yele Charan
-- Vilohith sree sai reddy
+### 4. Look at the data in the GUIs
+* **pgAdmin 4:** Servers → PostgreSQL 18 → Databases → `gatesentry` → Schemas → public → Tables / Functions / Trigger Functions. Login/Group Roles show `admin`, `guard`, `gatesentry_app`, `gs_admin`, `gs_security`.
+* **MongoDB Compass:** connect to `mongodb://localhost:27017` → `gatesentry` → `Observations`, `Report`, `Alerts`. The Validation and Indexes tabs show the schemas and indexes. `database/mongodb/mongo_commands.js` can be pasted into Compass's built-in **MONGOSH** shell.
