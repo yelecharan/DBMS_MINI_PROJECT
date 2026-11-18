@@ -73,9 +73,50 @@ def test_access_log_filters(client, guard):
     assert rows == sorted(rows, key=lambda r: r["scan_time"])
 
 
-def test_restrict_delete_message(client, admin):
-    r = client.delete("/api/cards/1", headers=admin)
-    assert r.status_code == 409 and "deactivate" in r.json()["detail"]
+def _employee_with_incident(client, admin, phone, card_no):
+    """employee + card + scan + incident (and its MongoDB observation, alert and report)."""
+    exp = str(date.today() + timedelta(days=365))
+    emp = client.post("/api/employees", headers=admin, json={
+        "name": "Cascade Test", "department": "QA", "phone": phone,
+        "card_no": card_no, "expiry_date": exp}).json()["emp_id"]
+    scan = client.post("/api/access-logs", headers=admin,
+                       json={"card_no": card_no, "gate_id": 4}).json()["scan_id"]
+    inc = client.post("/api/incidents/report-tailgating", headers=admin, json={
+        "scan_id": scan, "observed_count": 3, "authorized_count": 1}).json()["incident"]["incident_id"]
+    client.post("/api/reports", headers=admin, json={
+        "incident_id": inc, "description": "cascade test report text"})
+    return emp, scan, inc
+
+
+def test_delete_employee_cascades_to_sql_and_mongo(client, admin, mdb):
+    emp, scan, inc = _employee_with_incident(client, admin, "9222222221", "GS-CASC1")
+    assert sum(mdb[c].count_documents({"incident_id": inc}) for c in ("Observations", "Report", "Alerts")) == 3
+    r = client.delete(f"/api/employees/{emp}", headers=admin)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["incidents_removed"] == 1
+    assert body["mongo_documents_removed"] == {"Observations": 1, "Report": 1, "Alerts": 1}
+    assert client.get(f"/api/incidents/{inc}", headers=admin).status_code == 404
+    assert sum(mdb[c].count_documents({"incident_id": inc}) for c in ("Observations", "Report", "Alerts")) == 0
+
+
+def test_delete_scan_and_gate_cascade(client, admin, mdb):
+    g = client.post("/api/gates", headers=admin, json={"gate_name": "Cascade Gate", "location": "Lab"}).json()
+    scan = client.post("/api/access-logs", headers=admin, json={"card_no": "GS-1002", "gate_id": g["gate_id"]}).json()["scan_id"]
+    inc = client.post("/api/incidents/report-tailgating", headers=admin, json={
+        "scan_id": scan, "observed_count": 2, "authorized_count": 1}).json()["incident"]["incident_id"]
+    r = client.delete(f"/api/gates/{g['gate_id']}", headers=admin)      # gate -> scan -> incident -> Mongo
+    assert r.status_code == 200 and r.json()["incidents_removed"] == 1
+    assert mdb.Alerts.count_documents({"incident_id": inc}) == 0
+
+
+def test_last_card_delete_refused_and_mongo_untouched(client, admin, mdb):
+    emp, scan, inc = _employee_with_incident(client, admin, "9222222222", "GS-CASC2")
+    card_id = next(c["card_id"] for c in client.get("/api/cards", headers=admin, params={"search": "GS-CASC2"}).json())
+    r = client.delete(f"/api/cards/{card_id}", headers=admin)
+    assert r.status_code == 400 and "at least one access card" in r.json()["detail"]
+    assert mdb.Observations.count_documents({"incident_id": inc}) == 1      # nothing deleted in MongoDB
+    assert client.delete(f"/api/employees/{emp}", headers=admin).status_code == 200
 
 
 @pytest.mark.parametrize("key", list(SQL_QUERIES))

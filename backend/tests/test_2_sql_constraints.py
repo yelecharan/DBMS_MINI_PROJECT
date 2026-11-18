@@ -36,9 +36,16 @@ def test_not_null_scan_gate(su):
         su.execute("INSERT INTO access_logs(card_id, gate_id) VALUES (1, NULL)")
 
 
-def test_restrict_delete_card_with_scans(su):
-    with pytest.raises(errors.RestrictViolation):
-        su.execute("DELETE FROM cards WHERE card_id = 1")
+def test_cascade_delete_card_removes_scans_and_incidents(su):
+    """ON DELETE CASCADE: card -> its access_logs -> their incidents (rolled back afterwards)."""
+    scans = su.execute("SELECT COUNT(*) FROM access_logs WHERE card_id = 1").fetchone()[0]
+    incs = su.execute("SELECT COUNT(*) FROM incidents i JOIN access_logs a ON a.scan_id = i.scan_id "
+                      "WHERE a.card_id = 1").fetchone()[0]
+    assert scans > 0 and incs > 0
+    su.execute("DELETE FROM cards WHERE card_id = 1")     # employee 1 still owns card 11
+    assert su.execute("SELECT COUNT(*) FROM access_logs WHERE card_id = 1").fetchone()[0] == 0
+    assert su.execute("SELECT COUNT(*) FROM incidents WHERE scan_id NOT IN "
+                      "(SELECT scan_id FROM access_logs)").fetchone()[0] == 0
 
 
 def test_incident_severity_check(su):

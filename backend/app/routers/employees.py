@@ -3,7 +3,7 @@ from sqlalchemy import text
 
 from ..auth import CurrentUser, get_current_user, require_admin
 from ..db import pg_session, rows
-from ..deps import not_found, order_by
+from ..deps import cascading_delete, not_found, order_by
 from ..schemas import EmployeeCreate, EmployeeUpdate
 
 router = APIRouter(prefix="/api/employees", tags=["Employees"])
@@ -80,7 +80,7 @@ def deactivate_cards(emp_id: int, user: CurrentUser = Depends(require_admin)):
 @router.delete("/{emp_id}")
 def delete_employee(emp_id: int, user: CurrentUser = Depends(require_admin)):
     with pg_session(user.role) as conn:
-        n = conn.execute(text("DELETE FROM employees WHERE emp_id = :id"), {"id": emp_id}).rowcount
-    if not n:
+        result = cascading_delete(conn, "employee", "DELETE FROM employees WHERE emp_id = :id", emp_id)
+    if not result["deleted"]:
         raise not_found("Employee", emp_id)
-    return {"deleted": emp_id}
+    return result

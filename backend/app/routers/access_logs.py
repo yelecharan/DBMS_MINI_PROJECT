@@ -5,7 +5,7 @@ from sqlalchemy import text
 
 from ..auth import CurrentUser, get_current_user, require_admin, require_staff
 from ..db import pg_session, rows
-from ..deps import not_found, order_by
+from ..deps import cascading_delete, not_found, order_by
 from ..schemas import ScanIn
 
 router = APIRouter(prefix="/api/access-logs", tags=["Access Logs"])
@@ -72,8 +72,7 @@ def authorized_count(scan_id: int, window: int = 10, user: CurrentUser = Depends
 @router.delete("/{scan_id}")
 def delete_log(scan_id: int, user: CurrentUser = Depends(require_admin)):
     with pg_session(user.role) as conn:
-        n = conn.execute(text("DELETE FROM access_logs WHERE scan_id = :id"),
-                         {"id": scan_id}).rowcount
-    if not n:
+        result = cascading_delete(conn, "scan", "DELETE FROM access_logs WHERE scan_id = :id", scan_id)
+    if not result["deleted"]:
         raise not_found("Scan", scan_id)
-    return {"deleted": scan_id}
+    return result

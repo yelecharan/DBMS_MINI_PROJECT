@@ -62,7 +62,7 @@ CREATE TABLE gates (
 -- R4 Access_Logs(scan_id PK, card_id FK -> Cards, gate_id FK -> Gates, scan_time, access_result)
 -- Cards (1) --generates-- (N) Access_Logs, Gates (1) --at-- (N) Access_Logs.
 -- Every log needs a card and a gate (total participation of Access_Logs) -> NOT NULL.
--- ON DELETE RESTRICT keeps the audit trail: a card/gate with scans cannot be deleted.
+-- ON DELETE CASCADE: deleting a card or gate also deletes its scans (and their incidents).
 -- ---------------------------------------------------------------------
 CREATE TABLE access_logs (
     scan_id        SERIAL      PRIMARY KEY,
@@ -71,9 +71,9 @@ CREATE TABLE access_logs (
     scan_time      TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
     access_result  VARCHAR(10) NOT NULL DEFAULT 'GRANTED',
     CONSTRAINT fk_logs_card FOREIGN KEY (card_id)
-        REFERENCES cards(card_id) ON DELETE RESTRICT,
+        REFERENCES cards(card_id) ON DELETE CASCADE,
     CONSTRAINT fk_logs_gate FOREIGN KEY (gate_id)
-        REFERENCES gates(gate_id) ON DELETE RESTRICT
+        REFERENCES gates(gate_id) ON DELETE CASCADE
 );
 
 -- ---------------------------------------------------------------------
@@ -87,7 +87,7 @@ CREATE TABLE incidents (
     severity       VARCHAR(10) NOT NULL DEFAULT 'MEDIUM',
     status         VARCHAR(15) NOT NULL DEFAULT 'OPEN',
     CONSTRAINT fk_incidents_scan FOREIGN KEY (scan_id)
-        REFERENCES access_logs(scan_id) ON DELETE RESTRICT
+        REFERENCES access_logs(scan_id) ON DELETE CASCADE
 );
 
 -- ---------- ALTER TABLE (constraints added after creation) ----------

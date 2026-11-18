@@ -12,6 +12,7 @@ interface Log {
   scan_id: number; scan_time: string; access_result: string; card_id: number; card_no: string;
   emp_id: number; employee: string; department: string; gate_id: number; gate_name: string; incident_count: number;
 }
+interface Cascade { incidents_removed: number; mongo_documents_removed: Record<string, number> }
 interface Gate { gate_id: number; gate_name: string; status: string }
 
 export default function AccessLogsPage() {
@@ -54,8 +55,8 @@ export default function AccessLogsPage() {
     if (!toDelete) return;
     setBusy(true);
     try {
-      await api.del(`/api/access-logs/${toDelete.scan_id}`);
-      setMsg(`Scan #${toDelete.scan_id} deleted.`);
+      const r = await api.del<Cascade>(`/api/access-logs/${toDelete.scan_id}`);
+      setMsg(`Scan #${toDelete.scan_id} deleted; ` + `${r.incidents_removed} incident(s) and ${Object.values(r.mongo_documents_removed).reduce((a, b) => a + b, 0)} MongoDB document(s) removed with it.`);
       reload();
     } catch (e) {
       setError((e as Error).message);
@@ -122,7 +123,7 @@ export default function AccessLogsPage() {
       <TailgatingForm scan={tailgate} onClose={() => setTailgate(null)} onDone={(m) => { setMsg(m); reload(); }} />
 
       <ConfirmDialog open={!!toDelete} title="Delete scan" busy={busy} onCancel={() => setToDelete(null)} onConfirm={remove}
-        message={<>Delete scan <b>#{toDelete?.scan_id}</b>? Scans that already have incidents cannot be deleted (ON DELETE RESTRICT).</>} />
+        message={<>Delete scan <b>#{toDelete?.scan_id}</b>? Its incidents are deleted too (ON DELETE CASCADE), with the linked MongoDB documents.</>} />
     </>
   );
 }

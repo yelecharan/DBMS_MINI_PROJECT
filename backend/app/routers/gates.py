@@ -3,7 +3,7 @@ from sqlalchemy import text
 
 from ..auth import CurrentUser, get_current_user, require_admin
 from ..db import pg_session, rows
-from ..deps import not_found, order_by
+from ..deps import cascading_delete, not_found, order_by
 from ..schemas import GateIn
 
 router = APIRouter(prefix="/api/gates", tags=["Gates"])
@@ -59,7 +59,7 @@ def update_gate(gate_id: int, body: GateIn, user: CurrentUser = Depends(require_
 @router.delete("/{gate_id}")
 def delete_gate(gate_id: int, user: CurrentUser = Depends(require_admin)):
     with pg_session(user.role) as conn:
-        n = conn.execute(text("DELETE FROM gates WHERE gate_id = :id"), {"id": gate_id}).rowcount
-    if not n:
+        result = cascading_delete(conn, "gate", "DELETE FROM gates WHERE gate_id = :id", gate_id)
+    if not result["deleted"]:
         raise not_found("Gate", gate_id)
-    return {"deleted": gate_id}
+    return result

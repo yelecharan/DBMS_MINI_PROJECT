@@ -28,6 +28,39 @@ def ensure_incident_exists(role: str, incident_id: int) -> dict:
     return found[0]
 
 
+INCIDENTS_UNDER = {
+    # which incidents disappear (ON DELETE CASCADE) when a row of this kind is deleted
+    "employee": "SELECT i.incident_id FROM incidents i JOIN access_logs a ON a.scan_id = i.scan_id "
+                "JOIN cards c ON c.card_id = a.card_id WHERE c.emp_id = :id",
+    "card": "SELECT i.incident_id FROM incidents i JOIN access_logs a ON a.scan_id = i.scan_id "
+            "WHERE a.card_id = :id",
+    "gate": "SELECT i.incident_id FROM incidents i JOIN access_logs a ON a.scan_id = i.scan_id "
+            "WHERE a.gate_id = :id",
+    "scan": "SELECT incident_id FROM incidents WHERE scan_id = :id",
+}
+
+
+def cascading_delete(conn, kind: str, delete_sql: str, key: int) -> dict:
+    """Delete a SQL row and everything under it.
+
+    PostgreSQL cascades through cards -> access_logs -> incidents by itself (ON DELETE CASCADE).
+    MongoDB cannot see those foreign keys, so the incident ids are collected first and their
+    Observations / Report / Alerts documents are deleted inside the same SQL transaction
+    (if MongoDB fails, the SQL delete is rolled back too).
+    """
+    from .mongo_setup import ALERTS, OBSERVATIONS, REPORT
+    ids = [r[0] for r in conn.execute(text(INCIDENTS_UNDER[kind]), {"id": key})]
+    deleted = conn.execute(text(delete_sql), {"id": key}).rowcount
+    if not deleted:
+        return {"deleted": 0}
+    # run the deferred participation trigger NOW (not at COMMIT), so a refused delete
+    # fails before any MongoDB document is touched
+    conn.execute(text("SET CONSTRAINTS ALL IMMEDIATE"))
+    removed = {c: (mongo_db[c].delete_many({"incident_id": {"$in": ids}}).deleted_count if ids else 0)
+               for c in (OBSERVATIONS, REPORT, ALERTS)}
+    return {"deleted": key, "incidents_removed": len(ids), "mongo_documents_removed": removed}
+
+
 def mongo_counts_by_incident(collection: str, ids: list[int]) -> dict[int, int]:
     pipeline = [{"$match": {"incident_id": {"$in": ids}}},
                 {"$group": {"_id": "$incident_id", "n": {"$sum": 1}}}]

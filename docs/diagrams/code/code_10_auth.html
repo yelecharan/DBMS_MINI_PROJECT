@@ -1,0 +1,67 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/vs2015.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<style>
+body{margin:0;background:#0b1220;font-family:"Segoe UI",Arial,sans-serif;width:1240px}
+.win{margin:22px;border-radius:10px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.45);border:1px solid #2b3445}
+.bar{background:#1f2633;color:#cbd5e1;padding:9px 14px;font-size:14px;display:flex;align-items:center;gap:8px}
+.dot{width:12px;height:12px;border-radius:50%;display:inline-block}
+.file{margin-left:10px;color:#e2e8f0;font-family:Consolas,monospace}
+.cap{margin-left:auto;color:#93c5fd;font-weight:600}
+.body{display:flex;background:#1e1e1e}
+pre{margin:0;padding:14px 0;font:14px/1.5 Consolas,"Cascadia Mono",monospace}
+.ln{color:#6e7681;text-align:right;padding:14px 12px 14px 16px;user-select:none;border-right:1px solid #2d2d2d;background:#1a1a1a}
+code.hljs{padding:0 18px !important;background:#1e1e1e !important;white-space:pre}
+</style></head><body><div class="win">
+<div class="bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span>
+<span class="dot" style="background:#28c840"></span><span class="file">backend/app/auth.py</span><span class="cap">Backend – login verified by PostgreSQL, role from membership</span></div>
+<div class="body"><pre class="ln">31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55</pre><pre><code class="language-python">def verify_credentials(username: str, password: str) -&gt; CurrentUser | None:
+    try:
+        with psycopg.connect(host=settings.PG_HOST, port=settings.PG_PORT,
+                             dbname=settings.PG_DATABASE, user=username, password=password,
+                             connect_timeout=5) as conn:
+            row = conn.execute(&quot;&quot;&quot;
+                SELECT pg_has_role(current_user, &#x27;gs_admin&#x27;, &#x27;MEMBER&#x27;),
+                       pg_has_role(current_user, &#x27;gs_security&#x27;, &#x27;MEMBER&#x27;),
+                       pg_has_role(current_user, &#x27;gs_viewer&#x27;, &#x27;MEMBER&#x27;)&quot;&quot;&quot;).fetchone()
+    except psycopg.OperationalError as exc:
+        msg = str(exc).lower()
+        if &quot;password authentication failed&quot; in msg or &quot;does not exist&quot; in msg \
+                or &quot;permission denied&quot; in msg:
+            return None
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE,
+                            &quot;PostgreSQL server unavailable&quot;) from exc
+    if username == settings.PG_APP_USER:      # the service account is not a person
+        return None
+    if row[0]:
+        return CurrentUser(username=username, role=&quot;admin&quot;)
+    if row[1]:
+        return CurrentUser(username=username, role=&quot;security&quot;)
+    if row[2]:
+        return CurrentUser(username=username, role=&quot;viewer&quot;)
+    return None</code></pre></div>
+</div><script>hljs.highlightAll();</script></body></html>

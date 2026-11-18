@@ -1,0 +1,61 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/vs2015.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<style>
+body{margin:0;background:#0b1220;font-family:"Segoe UI",Arial,sans-serif;width:1240px}
+.win{margin:22px;border-radius:10px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.45);border:1px solid #2b3445}
+.bar{background:#1f2633;color:#cbd5e1;padding:9px 14px;font-size:14px;display:flex;align-items:center;gap:8px}
+.dot{width:12px;height:12px;border-radius:50%;display:inline-block}
+.file{margin-left:10px;color:#e2e8f0;font-family:Consolas,monospace}
+.cap{margin-left:auto;color:#93c5fd;font-weight:600}
+.body{display:flex;background:#1e1e1e}
+pre{margin:0;padding:14px 0;font:14px/1.5 Consolas,"Cascadia Mono",monospace}
+.ln{color:#6e7681;text-align:right;padding:14px 12px 14px 16px;user-select:none;border-right:1px solid #2d2d2d;background:#1a1a1a}
+code.hljs{padding:0 18px !important;background:#1e1e1e !important;white-space:pre}
+</style></head><body><div class="win">
+<div class="bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span>
+<span class="dot" style="background:#28c840"></span><span class="file">database/postgres/02_functions_triggers.sql</span><span class="cap">PostgreSQL trigger – every card scan is validated</span></div>
+<div class="body"><pre class="ln">68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89</pre><pre><code class="language-sql">CREATE OR REPLACE FUNCTION fn_validate_access_log()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+DECLARE
+    v_card_status  VARCHAR;
+    v_expiry       DATE;
+    v_gate_status  VARCHAR;
+BEGIN
+    SELECT status, expiry_date INTO v_card_status, v_expiry FROM cards WHERE card_id = NEW.card_id;
+    SELECT status INTO v_gate_status FROM gates WHERE gate_id = NEW.gate_id;
+
+    IF v_card_status IS DISTINCT FROM &#x27;ACTIVE&#x27;
+       OR v_expiry &lt; NEW.scan_time::date
+       OR v_gate_status IS DISTINCT FROM &#x27;ACTIVE&#x27; THEN
+        NEW.access_result := &#x27;DENIED&#x27;;
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_validate_access_log
+    BEFORE INSERT ON access_logs
+    FOR EACH ROW EXECUTE FUNCTION fn_validate_access_log();</code></pre></div>
+</div><script>hljs.highlightAll();</script></body></html>

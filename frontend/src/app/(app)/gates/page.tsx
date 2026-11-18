@@ -7,6 +7,7 @@ import { useApi } from "@/lib/hooks";
 import { Badge, ConfirmDialog, DataTable, Field, Modal, Notice, PageHeader, SearchBox, Select, useDebounced, type Column } from "@/components/ui";
 
 interface Gate { gate_id: number; gate_name: string; location: string; type: string; status: string; scan_count: number; incident_count: number }
+interface Cascade { incidents_removed: number; mongo_documents_removed: Record<string, number> }
 type Form = { gate_name: string; location: string; type: string; status: string };
 const TYPES = ["ENTRY", "EXIT", "BIDIRECTIONAL"];
 const STATUSES = ["ACTIVE", "INACTIVE", "MAINTENANCE"];
@@ -49,8 +50,8 @@ export default function GatesPage() {
     if (!toDelete) return;
     setBusy(true);
     try {
-      await api.del(`/api/gates/${toDelete.gate_id}`);
-      setMsg(`Gate ${toDelete.gate_name} deleted.`);
+      const r = await api.del<Cascade>(`/api/gates/${toDelete.gate_id}`);
+      setMsg(`Gate ${toDelete.gate_name} deleted with its scans; ` + `${r.incidents_removed} incident(s) and ${Object.values(r.mongo_documents_removed).reduce((a, b) => a + b, 0)} MongoDB document(s) removed with it.`);
       reload();
     } catch (e) {
       setError((e as Error).message);
@@ -109,7 +110,7 @@ export default function GatesPage() {
       </Modal>
 
       <ConfirmDialog open={!!toDelete} title="Delete gate" busy={busy} onCancel={() => setToDelete(null)} onConfirm={remove}
-        message={<>Delete gate <b>{toDelete?.gate_name}</b>? Gates with recorded scans cannot be deleted (ON DELETE RESTRICT) – set them to INACTIVE instead.</>} />
+        message={<>Delete gate <b>{toDelete?.gate_name}</b>? All scans at this gate and their incidents are deleted too (ON DELETE CASCADE), with the linked MongoDB documents. This cannot be undone.</>} />
     </>
   );
 }

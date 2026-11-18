@@ -10,6 +10,7 @@ interface Employee {
   emp_id: number; name: string; department: string; phone: string | null;
   card_count: number; active_cards: number; scan_count: number; card_numbers: string | null;
 }
+interface Cascade { incidents_removed: number; mongo_documents_removed: Record<string, number> }
 type Form = { name: string; department: string; phone: string; card_no: string; expiry_date: string };
 
 const nextYear = () => new Date(Date.now() + 365 * 864e5).toISOString().slice(0, 10);
@@ -71,8 +72,8 @@ export default function EmployeesPage() {
     if (!toDelete) return;
     setBusy(true);
     try {
-      await api.del(`/api/employees/${toDelete.emp_id}`);
-      setMsg(`Employee #${toDelete.emp_id} deleted.`);
+      const r = await api.del<Cascade>(`/api/employees/${toDelete.emp_id}`);
+      setMsg(`Employee #${toDelete.emp_id} deleted with all cards and scans; ` + `${r.incidents_removed} incident(s) and ${Object.values(r.mongo_documents_removed).reduce((a, b) => a + b, 0)} MongoDB document(s) removed with it.`);
       reload();
     } catch (e) {
       setError((e as Error).message);
@@ -149,7 +150,7 @@ export default function EmployeesPage() {
       </Modal>
 
       <ConfirmDialog open={!!toDelete} title="Delete employee" busy={busy} onCancel={() => setToDelete(null)} onConfirm={remove}
-        message={<>Delete <b>{toDelete?.name}</b> and their cards (ON DELETE CASCADE)? Employees whose cards have scan history cannot be deleted – the audit trail is protected by ON DELETE RESTRICT.</>} />
+        message={<>Delete <b>{toDelete?.name}</b>? This also deletes their cards, all their scans and any incidents from those scans (ON DELETE CASCADE), plus the linked MongoDB observations, reports and alerts. This cannot be undone.</>} />
     </>
   );
 }

@@ -1,0 +1,107 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/vs2015.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<style>
+body{margin:0;background:#0b1220;font-family:"Segoe UI",Arial,sans-serif;width:1240px}
+.win{margin:22px;border-radius:10px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.45);border:1px solid #2b3445}
+.bar{background:#1f2633;color:#cbd5e1;padding:9px 14px;font-size:14px;display:flex;align-items:center;gap:8px}
+.dot{width:12px;height:12px;border-radius:50%;display:inline-block}
+.file{margin-left:10px;color:#e2e8f0;font-family:Consolas,monospace}
+.cap{margin-left:auto;color:#93c5fd;font-weight:600}
+.body{display:flex;background:#1e1e1e}
+pre{margin:0;padding:14px 0;font:14px/1.5 Consolas,"Cascadia Mono",monospace}
+.ln{color:#6e7681;text-align:right;padding:14px 12px 14px 16px;user-select:none;border-right:1px solid #2d2d2d;background:#1a1a1a}
+code.hljs{padding:0 18px !important;background:#1e1e1e !important;white-space:pre}
+</style></head><body><div class="win">
+<div class="bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span>
+<span class="dot" style="background:#28c840"></span><span class="file">backend/app/routers/incidents.py</span><span class="cap">Backend – SQL incident + MongoDB documents in one transaction</span></div>
+<div class="body"><pre class="ln">73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117</pre><pre><code class="language-python">@router.post(&quot;/report-tailgating&quot;, status_code=201)
+def report_tailgating(body: TailgatingIn, user: CurrentUser = Depends(require_staff)):
+    &quot;&quot;&quot;Security staff / admin: observed people &gt; authorised scans.
+
+    1. PostgreSQL : fn_report_tailgating() validates and inserts the incident
+    2. MongoDB    : an Observation and an Alert document referencing incident_id
+    The Mongo writes happen inside the open SQL transaction, so if MongoDB fails
+    the SQL incident is rolled back as well (no orphan rows).&quot;&quot;&quot;
+    with pg_session(user.role) as conn:
+        auth = body.authorized_count
+        if auth is None:
+            auth = conn.execute(text(&quot;SELECT fn_authorized_count(:s)&quot;),
+                                {&quot;s&quot;: body.scan_id}).scalar_one()
+        incident_id = conn.execute(text(&quot;SELECT fn_report_tailgating(:s, :o, :a)&quot;),
+                                   {&quot;s&quot;: body.scan_id, &quot;o&quot;: body.observed_count,
+                                    &quot;a&quot;: auth}).scalar_one()
+        inc = rows(conn.execute(text(DETAIL_SQL + &quot; WHERE i.incident_id = :id&quot;),
+                                {&quot;id&quot;: incident_id}))[0]
+        now = utcnow()
+        obs = {
+            &quot;obs_id&quot;: new_id(&quot;OBS&quot;), &quot;incident_id&quot;: incident_id, &quot;method&quot;: body.method,
+            &quot;observed_count&quot;: body.observed_count, &quot;authorized_count&quot;: auth, &quot;timestamp&quot;: now,
+            &quot;location&quot;: {&quot;gate_id&quot;: inc[&quot;gate_id&quot;], &quot;gate_name&quot;: inc[&quot;gate_name&quot;],
+                         &quot;scan_id&quot;: body.scan_id},
+            &quot;observed_by&quot;: user.username, &quot;notes&quot;: body.notes,
+            &quot;tags&quot;: [&quot;tailgating&quot;, inc[&quot;severity&quot;].lower()],
+        }
+        alert = {
+            &quot;alert_id&quot;: new_id(&quot;ALT&quot;), &quot;incident_id&quot;: incident_id, &quot;alert_time&quot;: now,
+            &quot;alert_type&quot;: &quot;ESCALATION&quot; if inc[&quot;severity&quot;] == &quot;CRITICAL&quot; else &quot;TAILGATING&quot;,
+            &quot;severity&quot;: inc[&quot;severity&quot;],
+            &quot;message&quot;: (f&quot;{inc[&#x27;severity&#x27;]} tailgating suspected at {inc[&#x27;gate_name&#x27;]}: &quot;
+                        f&quot;{body.observed_count} people on {auth} authorised scan(s).&quot;),
+            &quot;ack_status&quot;: &quot;PENDING&quot;, &quot;acknowledged&quot;: None,
+            &quot;recipients&quot;: [&quot;security-desk&quot;, &quot;facility-admin&quot;],
+        }
+        mongo_db[OBSERVATIONS].insert_one(obs)
+        try:
+            mongo_db[ALERTS].insert_one(alert)
+        except Exception:
+            # the SQL incident will roll back -&gt; remove the observation too (no orphans)
+            mongo_db[OBSERVATIONS].delete_one({&quot;obs_id&quot;: obs[&quot;obs_id&quot;]})
+            raise
+    return {&quot;incident&quot;: inc, &quot;authorized_count&quot;: auth, &quot;obs_id&quot;: obs[&quot;obs_id&quot;],
+            &quot;alert_id&quot;: alert[&quot;alert_id&quot;]}</code></pre></div>
+</div><script>hljs.highlightAll();</script></body></html>

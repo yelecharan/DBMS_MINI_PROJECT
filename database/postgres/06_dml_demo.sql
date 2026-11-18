@@ -193,9 +193,9 @@ RETURNING *;
 
 -- =====================================================================
 -- 7. DELETE - ONE DELETE PER TABLE (removes the demo rows again)
---    Order is the reverse of the inserts: child rows first, because the
---    foreign keys use ON DELETE RESTRICT (an access log with incidents, or a
---    card with access logs, cannot be deleted while those rows exist).
+--    Order is the reverse of the inserts (child rows first). The foreign keys
+--    use ON DELETE CASCADE, so deleting a parent would also remove its children
+--    automatically - deleting them one by one here shows each table's DELETE.
 -- =====================================================================
 
 -- 7.1 DELETE FROM incidents

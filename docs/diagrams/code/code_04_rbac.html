@@ -1,0 +1,89 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/vs2015.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<style>
+body{margin:0;background:#0b1220;font-family:"Segoe UI",Arial,sans-serif;width:1240px}
+.win{margin:22px;border-radius:10px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.45);border:1px solid #2b3445}
+.bar{background:#1f2633;color:#cbd5e1;padding:9px 14px;font-size:14px;display:flex;align-items:center;gap:8px}
+.dot{width:12px;height:12px;border-radius:50%;display:inline-block}
+.file{margin-left:10px;color:#e2e8f0;font-family:Consolas,monospace}
+.cap{margin-left:auto;color:#93c5fd;font-weight:600}
+.body{display:flex;background:#1e1e1e}
+pre{margin:0;padding:14px 0;font:14px/1.5 Consolas,"Cascadia Mono",monospace}
+.ln{color:#6e7681;text-align:right;padding:14px 12px 14px 16px;user-select:none;border-right:1px solid #2d2d2d;background:#1a1a1a}
+code.hljs{padding:0 18px !important;background:#1e1e1e !important;white-space:pre}
+</style></head><body><div class="win">
+<div class="bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span>
+<span class="dot" style="background:#28c840"></span><span class="file">database/postgres/03_roles.sql</span><span class="cap">PostgreSQL role-based access control – GRANTs per role</span></div>
+<div class="body"><pre class="ln">40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75</pre><pre><code class="language-sql">-- ---------------- Admin: everything ----------------
+GRANT SELECT, INSERT, UPDATE, DELETE
+      ON employees, cards, gates, access_logs, incidents TO gs_admin;
+GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO gs_admin;
+GRANT EXECUTE ON ALL FUNCTIONS  IN SCHEMA public TO gs_admin;
+GRANT EXECUTE ON ALL PROCEDURES IN SCHEMA public TO gs_admin;
+
+-- ---------------- Security staff ----------------
+GRANT SELECT ON employees, cards, gates, access_logs, incidents TO gs_security;
+GRANT INSERT ON access_logs TO gs_security;                 -- record card scans
+GRANT INSERT ON incidents   TO gs_security;                 -- raise suspected tailgating
+GRANT UPDATE (status) ON incidents TO gs_security;          -- column-level privilege
+GRANT USAGE ON SEQUENCE access_logs_scan_id_seq, incidents_incident_id_seq TO gs_security;
+GRANT EXECUTE ON FUNCTION
+      fn_authorized_count(INT, INT),
+      fn_compute_severity(INT, INT),
+      fn_report_tailgating(INT, INT, INT),
+      fn_gate_risk_summary(),
+      fn_validate_access_log(),
+      fn_validate_incident_time()
+      TO gs_security;
+-- trigger functions must be executable by whoever fires the trigger
+GRANT EXECUTE ON FUNCTION fn_check_employee_has_card(), fn_card_auto_expire() TO gs_admin;
+-- NOTE: security staff get NO DELETE anywhere and NO access to the procedures.
+
+-- ---------------- Viewer (limited, read-only user) ----------------
+-- Can look at dashboards, gates, scans and incidents but cannot change anything.
+-- Column-level SELECT: employees.phone (personal data) is NOT visible to viewers.
+GRANT SELECT ON cards, gates, access_logs, incidents TO gs_viewer;
+GRANT SELECT (emp_id, name, department) ON employees TO gs_viewer;
+GRANT EXECUTE ON FUNCTION
+      fn_authorized_count(INT, INT),
+      fn_compute_severity(INT, INT),
+      fn_gate_risk_summary()
+      TO gs_viewer;
+-- NOTE: viewers get NO INSERT / UPDATE / DELETE and NO procedures.</code></pre></div>
+</div><script>hljs.highlightAll();</script></body></html>

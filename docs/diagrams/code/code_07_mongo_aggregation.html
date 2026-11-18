@@ -1,0 +1,95 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/vs2015.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<style>
+body{margin:0;background:#0b1220;font-family:"Segoe UI",Arial,sans-serif;width:1240px}
+.win{margin:22px;border-radius:10px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.45);border:1px solid #2b3445}
+.bar{background:#1f2633;color:#cbd5e1;padding:9px 14px;font-size:14px;display:flex;align-items:center;gap:8px}
+.dot{width:12px;height:12px;border-radius:50%;display:inline-block}
+.file{margin-left:10px;color:#e2e8f0;font-family:Consolas,monospace}
+.cap{margin-left:auto;color:#93c5fd;font-weight:600}
+.body{display:flex;background:#1e1e1e}
+pre{margin:0;padding:14px 0;font:14px/1.5 Consolas,"Cascadia Mono",monospace}
+.ln{color:#6e7681;text-align:right;padding:14px 12px 14px 16px;user-select:none;border-right:1px solid #2d2d2d;background:#1a1a1a}
+code.hljs{padding:0 18px !important;background:#1e1e1e !important;white-space:pre}
+</style></head><body><div class="win">
+<div class="bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span>
+<span class="dot" style="background:#28c840"></span><span class="file">backend/app/routers/observations.py</span><span class="cap">MongoDB read with filters and aggregation pipeline</span></div>
+<div class="body"><pre class="ln">17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55</pre><pre><code class="language-python">@router.get(&quot;&quot;)
+def list_observations(incident_id: int | None = None, method: str | None = None,
+                      gate_id: int | None = None, min_excess: int | None = None,
+                      sort: str = &quot;timestamp&quot;, order: str = &quot;desc&quot;,
+                      user: CurrentUser = Depends(get_current_user)):
+    query: dict = {}
+    if incident_id:
+        query[&quot;incident_id&quot;] = incident_id
+    if method:
+        query[&quot;method&quot;] = method
+    if gate_id:
+        query[&quot;location.gate_id&quot;] = gate_id                  # filter on nested field
+    if min_excess is not None:                               # $expr compares two fields
+        query[&quot;$expr&quot;] = {&quot;$gte&quot;: [{&quot;$subtract&quot;: [&quot;$observed_count&quot;, &quot;$authorized_count&quot;]},
+                                   min_excess]}
+    direction = ASCENDING if order == &quot;asc&quot; else DESCENDING
+    cursor = col.find(query, {&quot;_id&quot;: 0}).sort(sort if sort in SORTS else &quot;timestamp&quot;, direction)
+    return [{**d, &quot;excess&quot;: d[&quot;observed_count&quot;] - d[&quot;authorized_count&quot;]} for d in cursor]
+
+
+@router.get(&quot;/stats&quot;)
+def observation_stats(user: CurrentUser = Depends(get_current_user)):
+    &quot;&quot;&quot;Aggregation pipeline: unauthorised entries per gate and per method.&quot;&quot;&quot;
+    per_gate = list(col.aggregate([
+        {&quot;$project&quot;: {&quot;gate&quot;: &quot;$location.gate_name&quot;,
+                      &quot;excess&quot;: {&quot;$subtract&quot;: [&quot;$observed_count&quot;, &quot;$authorized_count&quot;]}}},
+        {&quot;$group&quot;: {&quot;_id&quot;: &quot;$gate&quot;, &quot;observations&quot;: {&quot;$sum&quot;: 1},
+                    &quot;unauthorised_people&quot;: {&quot;$sum&quot;: &quot;$excess&quot;},
+                    &quot;avg_excess&quot;: {&quot;$avg&quot;: &quot;$excess&quot;}, &quot;max_excess&quot;: {&quot;$max&quot;: &quot;$excess&quot;}}},
+        {&quot;$sort&quot;: {&quot;unauthorised_people&quot;: -1}},
+        {&quot;$project&quot;: {&quot;_id&quot;: 0, &quot;gate&quot;: &quot;$_id&quot;, &quot;observations&quot;: 1, &quot;unauthorised_people&quot;: 1,
+                      &quot;max_excess&quot;: 1, &quot;avg_excess&quot;: {&quot;$round&quot;: [&quot;$avg_excess&quot;, 2]}}},
+    ]))
+    per_method = list(col.aggregate([
+        {&quot;$group&quot;: {&quot;_id&quot;: &quot;$method&quot;, &quot;count&quot;: {&quot;$sum&quot;: 1}}},
+        {&quot;$sort&quot;: {&quot;count&quot;: -1}},
+        {&quot;$project&quot;: {&quot;_id&quot;: 0, &quot;method&quot;: &quot;$_id&quot;, &quot;count&quot;: 1}},
+    ]))
+    return {&quot;per_gate&quot;: per_gate, &quot;per_method&quot;: per_method}</code></pre></div>
+</div><script>hljs.highlightAll();</script></body></html>

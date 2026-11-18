@@ -1,0 +1,77 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/vs2015.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<style>
+body{margin:0;background:#0b1220;font-family:"Segoe UI",Arial,sans-serif;width:1240px}
+.win{margin:22px;border-radius:10px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.45);border:1px solid #2b3445}
+.bar{background:#1f2633;color:#cbd5e1;padding:9px 14px;font-size:14px;display:flex;align-items:center;gap:8px}
+.dot{width:12px;height:12px;border-radius:50%;display:inline-block}
+.file{margin-left:10px;color:#e2e8f0;font-family:Consolas,monospace}
+.cap{margin-left:auto;color:#93c5fd;font-weight:600}
+.body{display:flex;background:#1e1e1e}
+pre{margin:0;padding:14px 0;font:14px/1.5 Consolas,"Cascadia Mono",monospace}
+.ln{color:#6e7681;text-align:right;padding:14px 12px 14px 16px;user-select:none;border-right:1px solid #2d2d2d;background:#1a1a1a}
+code.hljs{padding:0 18px !important;background:#1e1e1e !important;white-space:pre}
+</style></head><body><div class="win">
+<div class="bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span>
+<span class="dot" style="background:#28c840"></span><span class="file">database/postgres/02_functions_triggers.sql</span><span class="cap">PostgreSQL stored function – report a tailgating incident</span></div>
+<div class="body"><pre class="ln">151
+152
+153
+154
+155
+156
+157
+158
+159
+160
+161
+162
+163
+164
+165
+166
+167
+168
+169
+170
+171
+172
+173
+174
+175
+176
+177
+178
+179
+180</pre><pre><code class="language-sql">CREATE OR REPLACE FUNCTION fn_report_tailgating(
+    p_scan_id    INT,
+    p_observed   INT,
+    p_authorized INT DEFAULT NULL)
+RETURNS INT LANGUAGE plpgsql AS $$
+DECLARE
+    v_auth      INT;
+    v_incident  INT;
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM access_logs WHERE scan_id = p_scan_id) THEN
+        RAISE EXCEPTION &#x27;Scan % does not exist&#x27;, p_scan_id USING ERRCODE = &#x27;foreign_key_violation&#x27;;
+    END IF;
+
+    v_auth := COALESCE(p_authorized, fn_authorized_count(p_scan_id));
+
+    IF p_observed &lt;= v_auth THEN
+        RAISE EXCEPTION &#x27;No tailgating: % people observed, % authorised scans&#x27;, p_observed, v_auth
+              USING ERRCODE = &#x27;check_violation&#x27;;
+    END IF;
+
+    INSERT INTO incidents(scan_id, detected_time, severity, status)
+    VALUES (p_scan_id,
+            GREATEST(CURRENT_TIMESTAMP::timestamp, (SELECT scan_time FROM access_logs WHERE scan_id = p_scan_id)),
+            fn_compute_severity(p_observed, v_auth),
+            &#x27;OPEN&#x27;)
+    RETURNING incident_id INTO v_incident;
+
+    RETURN v_incident;
+END;
+$$;</code></pre></div>
+</div><script>hljs.highlightAll();</script></body></html>

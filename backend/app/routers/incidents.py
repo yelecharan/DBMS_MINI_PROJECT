@@ -107,7 +107,12 @@ def report_tailgating(body: TailgatingIn, user: CurrentUser = Depends(require_st
             "recipients": ["security-desk", "facility-admin"],
         }
         mongo_db[OBSERVATIONS].insert_one(obs)
-        mongo_db[ALERTS].insert_one(alert)
+        try:
+            mongo_db[ALERTS].insert_one(alert)
+        except Exception:
+            # the SQL incident will roll back -> remove the observation too (no orphans)
+            mongo_db[OBSERVATIONS].delete_one({"obs_id": obs["obs_id"]})
+            raise
     return {"incident": inc, "authorized_count": auth, "obs_id": obs["obs_id"],
             "alert_id": alert["alert_id"]}
 

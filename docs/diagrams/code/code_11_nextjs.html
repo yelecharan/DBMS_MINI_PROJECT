@@ -1,0 +1,65 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/vs2015.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<style>
+body{margin:0;background:#0b1220;font-family:"Segoe UI",Arial,sans-serif;width:1240px}
+.win{margin:22px;border-radius:10px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.45);border:1px solid #2b3445}
+.bar{background:#1f2633;color:#cbd5e1;padding:9px 14px;font-size:14px;display:flex;align-items:center;gap:8px}
+.dot{width:12px;height:12px;border-radius:50%;display:inline-block}
+.file{margin-left:10px;color:#e2e8f0;font-family:Consolas,monospace}
+.cap{margin-left:auto;color:#93c5fd;font-weight:600}
+.body{display:flex;background:#1e1e1e}
+pre{margin:0;padding:14px 0;font:14px/1.5 Consolas,"Cascadia Mono",monospace}
+.ln{color:#6e7681;text-align:right;padding:14px 12px 14px 16px;user-select:none;border-right:1px solid #2d2d2d;background:#1a1a1a}
+code.hljs{padding:0 18px !important;background:#1e1e1e !important;white-space:pre}
+</style></head><body><div class="win">
+<div class="bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span>
+<span class="dot" style="background:#28c840"></span><span class="file">frontend/src/app/(app)/incidents/page.tsx</span><span class="cap">Next.js – incidents page loading real data through the API</span></div>
+<div class="body"><pre class="ln">14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37</pre><pre><code class="language-typescript">function IncidentsInner() {
+  const { isAdmin, canWrite } = useAuth();
+  const params = useSearchParams();
+  const [search, setSearch] = useState(params.get(&quot;search&quot;) ?? &quot;&quot;);
+  const [severity, setSeverity] = useState(&quot;&quot;);
+  const [status, setStatus] = useState(&quot;&quot;);
+  const q = useDebounced(search);
+  const { data, loading, error, reload, setError } = useApi&lt;Incident[]&gt;(&quot;/api/incidents&quot;, { search: q, severity, status });
+
+  const [msg, setMsg] = useState&lt;string | null&gt;(null);
+  const [editing, setEditing] = useState&lt;Incident | null&gt;(null);
+  const [form, setForm] = useState({ severity: &quot;LOW&quot;, status: &quot;OPEN&quot; });
+  const [busy, setBusy] = useState(false);
+  const [toDelete, setToDelete] = useState&lt;Incident | null&gt;(null);
+
+  async function changeStatus(i: Incident, s: string) {
+    try {
+      await api.patch(`/api/incidents/${i.incident_id}/status`, { status: s });
+      setMsg(`Incident #${i.incident_id} → ${s.replace(&quot;_&quot;, &quot; &quot;)}`);
+      reload();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }</code></pre></div>
+</div><script>hljs.highlightAll();</script></body></html>

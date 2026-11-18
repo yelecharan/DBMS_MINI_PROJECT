@@ -3,7 +3,7 @@ from sqlalchemy import text
 
 from ..auth import CurrentUser, get_current_user, require_admin
 from ..db import pg_session, rows
-from ..deps import not_found, order_by
+from ..deps import cascading_delete, not_found, order_by
 from ..schemas import CardIn
 
 router = APIRouter(prefix="/api/cards", tags=["Cards"])
@@ -63,7 +63,7 @@ def update_card(card_id: int, body: CardIn, user: CurrentUser = Depends(require_
 @router.delete("/{card_id}")
 def delete_card(card_id: int, user: CurrentUser = Depends(require_admin)):
     with pg_session(user.role) as conn:
-        n = conn.execute(text("DELETE FROM cards WHERE card_id = :id"), {"id": card_id}).rowcount
-    if not n:
+        result = cascading_delete(conn, "card", "DELETE FROM cards WHERE card_id = :id", card_id)
+    if not result["deleted"]:
         raise not_found("Card", card_id)
-    return {"deleted": card_id}
+    return result

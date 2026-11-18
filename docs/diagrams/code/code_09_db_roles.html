@@ -1,0 +1,55 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/vs2015.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<style>
+body{margin:0;background:#0b1220;font-family:"Segoe UI",Arial,sans-serif;width:1240px}
+.win{margin:22px;border-radius:10px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.45);border:1px solid #2b3445}
+.bar{background:#1f2633;color:#cbd5e1;padding:9px 14px;font-size:14px;display:flex;align-items:center;gap:8px}
+.dot{width:12px;height:12px;border-radius:50%;display:inline-block}
+.file{margin-left:10px;color:#e2e8f0;font-family:Consolas,monospace}
+.cap{margin-left:auto;color:#93c5fd;font-weight:600}
+.body{display:flex;background:#1e1e1e}
+pre{margin:0;padding:14px 0;font:14px/1.5 Consolas,"Cascadia Mono",monospace}
+.ln{color:#6e7681;text-align:right;padding:14px 12px 14px 16px;user-select:none;border-right:1px solid #2d2d2d;background:#1a1a1a}
+code.hljs{padding:0 18px !important;background:#1e1e1e !important;white-space:pre}
+</style></head><body><div class="win">
+<div class="bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span>
+<span class="dot" style="background:#28c840"></span><span class="file">backend/app/db.py</span><span class="cap">Backend – every request runs with the user&#x27;s database role</span></div>
+<div class="body"><pre class="ln">19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37</pre><pre><code class="language-python">ROLE_TO_PG = {&quot;admin&quot;: &quot;gs_admin&quot;, &quot;security&quot;: &quot;gs_security&quot;, &quot;viewer&quot;: &quot;gs_viewer&quot;}
+
+engine = create_engine(
+    settings.pg_url(settings.PG_APP_USER, settings.PG_APP_PASSWORD),
+    pool_pre_ping=True,
+    pool_size=5,
+)
+
+_mongo_client = MongoClient(settings.MONGO_URI, serverSelectionTimeoutMS=4000, tz_aware=True)
+mongo_db: Database = _mongo_client[settings.MONGO_DB]
+
+
+@contextmanager
+def pg_session(role: str) -&gt; Iterator[Connection]:
+    &quot;&quot;&quot;Transaction that runs with the privileges of the application role.&quot;&quot;&quot;
+    pg_role = ROLE_TO_PG[role]                      # whitelist -&gt; safe to inline
+    with engine.begin() as conn:
+        conn.execute(text(f&quot;SET LOCAL ROLE {pg_role}&quot;))
+        yield conn</code></pre></div>
+</div><script>hljs.highlightAll();</script></body></html>

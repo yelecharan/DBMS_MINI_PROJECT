@@ -63,13 +63,18 @@ def create_report(body: ReportIn, user: CurrentUser = Depends(require_staff)):
     return doc
 
 
-@router.put("/{report_id}")
-def update_report(report_id: str, body: ReportUpdate, user: CurrentUser = Depends(require_staff)):
+def _check_owner(report_id: str, user: CurrentUser) -> None:
+    """Admins may change any report; security staff only the reports they wrote."""
     existing = col.find_one({"report_id": report_id}, {"reported_by": 1})
     if not existing:
         raise not_found("Report", report_id)
     if user.role != "admin" and existing["reported_by"]["username"] != user.username:
-        raise HTTPException(403, "Security staff can only edit their own reports")
+        raise HTTPException(403, "Security staff can only change their own reports")
+
+
+@router.put("/{report_id}")
+def update_report(report_id: str, body: ReportUpdate, user: CurrentUser = Depends(require_staff)):
+    _check_owner(report_id, user)
     return col.find_one_and_update(
         {"report_id": report_id},
         {"$set": {"description": body.description.strip(), "updated_at": utcnow()}},
@@ -78,6 +83,7 @@ def update_report(report_id: str, body: ReportUpdate, user: CurrentUser = Depend
 
 @router.post("/{report_id}/attachments")
 def add_attachment(report_id: str, body: Attachment, user: CurrentUser = Depends(require_staff)):
+    _check_owner(report_id, user)
     res = col.find_one_and_update({"report_id": report_id},
                                   {"$push": {"attachments": body.model_dump()},
                                    "$set": {"updated_at": utcnow()}},
@@ -89,6 +95,7 @@ def add_attachment(report_id: str, body: Attachment, user: CurrentUser = Depends
 
 @router.delete("/{report_id}/attachments/{file_name}")
 def remove_attachment(report_id: str, file_name: str, user: CurrentUser = Depends(require_staff)):
+    _check_owner(report_id, user)
     res = col.find_one_and_update({"report_id": report_id},
                                   {"$pull": {"attachments": {"file_name": file_name}}},
                                   projection={"_id": 0}, return_document=True)

@@ -12,6 +12,7 @@ interface Card {
 }
 interface Emp { emp_id: number; name: string }
 const STATUSES = ["ACTIVE", "INACTIVE", "EXPIRED", "LOST"];
+interface Cascade { incidents_removed: number; mongo_documents_removed: Record<string, number> }
 type Form = { emp_id: string; card_no: string; issue_date: string; expiry_date: string; status: string };
 
 export default function CardsPage() {
@@ -66,8 +67,8 @@ export default function CardsPage() {
     if (!toDelete) return;
     setBusy(true);
     try {
-      await api.del(`/api/cards/${toDelete.card_id}`);
-      setMsg(`Card ${toDelete.card_no} deleted.`);
+      const r = await api.del<Cascade>(`/api/cards/${toDelete.card_id}`);
+      setMsg(`Card ${toDelete.card_no} deleted with its scans; ` + `${r.incidents_removed} incident(s) and ${Object.values(r.mongo_documents_removed).reduce((a, b) => a + b, 0)} MongoDB document(s) removed with it.`);
       reload();
     } catch (e) {
       setError((e as Error).message);
@@ -137,7 +138,7 @@ export default function CardsPage() {
       </Modal>
 
       <ConfirmDialog open={!!toDelete} title="Delete card" busy={busy} onCancel={() => setToDelete(null)} onConfirm={remove}
-        message={<>Delete card <b>{toDelete?.card_no}</b>? Cards with scan history are protected (ON DELETE RESTRICT) and an employee&apos;s last card cannot be removed (total participation).</>} />
+        message={<>Delete card <b>{toDelete?.card_no}</b>? Its scans and their incidents are deleted too (ON DELETE CASCADE), with the linked MongoDB documents. An employee&apos;s <b>last</b> card cannot be removed (every employee must own a card) – delete the employee instead.</>} />
     </>
   );
 }

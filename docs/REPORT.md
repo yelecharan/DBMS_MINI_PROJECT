@@ -41,8 +41,8 @@ The full scripts are in `database/postgres/`. The key commands are below. `06_dm
 | R1 employees | **emp_id**, name, department, phone | phone UNIQUE + CHECK `^\+?[0-9]{10,13}$`, NOT NULLs |
 | R2 cards | **card_id**, *emp_id*→employees, card_no, issue_date, expiry_date, status | card_no UNIQUE, status IN (ACTIVE, INACTIVE, EXPIRED, LOST), CHECK expiry > issue, FK ON DELETE CASCADE |
 | R3 gates | **gate_id**, gate_name, location, type, status | gate_name UNIQUE, type IN (ENTRY, EXIT, BIDIRECTIONAL), status IN (ACTIVE, INACTIVE, MAINTENANCE) |
-| R4 access_logs | **scan_id**, *card_id*→cards, *gate_id*→gates, scan_time, access_result | access_result IN (GRANTED, DENIED), FKs ON DELETE RESTRICT (audit trail) |
-| R5 incidents | **incident_id**, *scan_id*→access_logs, detected_time, severity, status | severity IN (LOW…CRITICAL), status IN (OPEN, INVESTIGATING, RESOLVED, FALSE_ALARM), FK RESTRICT |
+| R4 access_logs | **scan_id**, *card_id*→cards, *gate_id*→gates, scan_time, access_result | access_result IN (GRANTED, DENIED), FKs ON DELETE CASCADE |
+| R5 incidents | **incident_id**, *scan_id*→access_logs, detected_time, severity, status | severity IN (LOW…CRITICAL), status IN (OPEN, INVESTIGATING, RESOLVED, FALSE_ALARM), FK ON DELETE CASCADE |
 
 How the cardinality and participation rules are implemented:
 * Employees (1)–(N) Cards, **total on both sides**. `cards.emp_id NOT NULL` makes every card belong to an employee. The deferred constraint trigger `trg_employee_requires_card` makes every employee own at least one card, checked at COMMIT. The procedure `sp_add_employee_with_card` inserts both in one transaction.
@@ -77,8 +77,8 @@ CREATE TABLE cards (
 
 CREATE TABLE access_logs (
     scan_id        SERIAL      PRIMARY KEY,
-    card_id        INT         NOT NULL REFERENCES cards(card_id) ON DELETE RESTRICT,
-    gate_id        INT         NOT NULL REFERENCES gates(gate_id) ON DELETE RESTRICT,
+    card_id        INT         NOT NULL REFERENCES cards(card_id) ON DELETE CASCADE,
+    gate_id        INT         NOT NULL REFERENCES gates(gate_id) ON DELETE CASCADE,
     scan_time      TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
     access_result  VARCHAR(10) NOT NULL DEFAULT 'GRANTED'
 );
@@ -305,7 +305,7 @@ db.Report.aggregate([ { $unwind: "$attachments" },
   { $group: { _id: "$attachments.file_type", count: { $sum: 1 } } } ]);
 ```
 
-**Integration with SQL.** `incident_id` is an application-level reference. The backend (`deps.ensure_incident_exists`) refuses documents whose incident does not exist in PostgreSQL. Deleting an incident also deletes its MongoDB documents. Reporting tailgating creates the SQL incident first and then writes the Observation and Alert documents inside the still-open SQL transaction, so the incident is rolled back if MongoDB fails.
+**Integration with SQL.** `incident_id` is an application-level reference. Deleting an employee, card, gate or scan cascades in PostgreSQL down to its incidents, and the backend then deletes those incidents' MongoDB documents in the same transaction. The backend (`deps.ensure_incident_exists`) refuses documents whose incident does not exist in PostgreSQL. Deleting an incident also deletes its MongoDB documents. Reporting tailgating creates the SQL incident first and then writes the Observation and Alert documents inside the still-open SQL transaction, so the incident is rolled back if MongoDB fails.
 
 ## 7. Next.js – Project Tree Structure
 
@@ -359,13 +359,28 @@ The screenshots in `docs/screenshots/` were captured from the running applicatio
 | Query Lab (recursive CTE) ![](screenshots/query_lab.png) | Incidents (security staff) ![](screenshots/security_incidents.png) |
 | Employees (viewer: phone hidden) ![](screenshots/viewer_employees.png) | Incident detail (viewer: read-only) ![](screenshots/viewer_incident_detail.png) |
 
-*Add your own pgAdmin 4 (tables, triggers, roles) and MongoDB Compass (collections, validation, indexes) screenshots and VS Code code screenshots here before you submit.*
+### 8.1 Application code
+
+These are cut from the real source files, with their real line numbers (`python docs/diagrams/make_code_screenshots.py` regenerates them).
+
+| | |
+|---|---|
+| DDL with constraints ![](screenshots/code_01_ddl.png) | Trigger – scan validation ![](screenshots/code_02_trigger.png) |
+| Stored function – report tailgating ![](screenshots/code_03_function.png) | Role-based GRANTs ![](screenshots/code_04_rbac.png) |
+| Recursive CTE ![](screenshots/code_05_recursive.png) | MongoDB `$jsonSchema` collection creation ![](screenshots/code_06_mongo_schema.png) |
+| MongoDB filters + aggregation ![](screenshots/code_07_mongo_aggregation.png) | SQL + MongoDB in one transaction ![](screenshots/code_08_integration.png) |
+| Per-request database role ![](screenshots/code_09_db_roles.png) | Login checked by PostgreSQL ![](screenshots/code_10_auth.png) |
+| Next.js page using the API ![](screenshots/code_11_nextjs.png) | |
+
+### 8.2 Database tools
+
+*To do before submitting: add pgAdmin 4 screenshots (the `gatesentry` tables, triggers and Login/Group Roles, plus `06_dml_demo.sql` / `07_advanced_sql_demo.sql` output) and MongoDB Compass screenshots (the three collections and their Validation and Indexes tabs, plus `mongo_dml_demo.js` in the shell).*
 
 Test run (`pytest`, against the real PostgreSQL 18 and MongoDB servers):
 ```
 115 passed in 3.1s
   test_1_connectivity.py            8   PostgreSQL/MongoDB connection, tables, FKs, collections, validators, indexes
-  test_2_sql_constraints.py        10   UNIQUE, CHECK, FK, NOT NULL, RESTRICT, total participation
+  test_2_sql_constraints.py        10   UNIQUE, CHECK, FK, NOT NULL, CASCADE, total participation
   test_3_functions_triggers.py     16   all triggers, functions, procedures
   test_4_api_sql.py                31   CRUD via API, filters, every report query, dashboard
   test_5_auth_rbac.py              19   login, JWT, 403s, database-level privilege enforcement
@@ -377,9 +392,9 @@ Test run (`pytest`, against the real PostgreSQL 18 and MongoDB servers):
 
 | # | Component | Marks | Status | Evidence |
 |---|---|---:|---|---|
-| 1 | ER diagram | 2 | ✅ Complete | `docs/er_diagram.png` |
+| 1 | ER diagram | 2 | ✅ Complete | `docs/er_diagram.png` (Chen notation, generated by `docs/diagrams/make_er_diagram.py`; the first hand-drawn version is in `docs/original_diagrams/`) |
 | 2 | Relational schema with keys, relationships, constraints | 3 | ✅ Complete | `docs/relational_schema.png`, §5.1 |
-| 3 | SQL implementation – DDL with constraints | 4 | ✅ Complete | `01_schema.sql`: PK, FK (CASCADE/RESTRICT), UNIQUE, CHECK, NOT NULL, DEFAULT, ALTER, indexes |
+| 3 | SQL implementation – DDL with constraints | 4 | ✅ Complete | `01_schema.sql`: PK, FK (ON DELETE CASCADE), UNIQUE, CHECK, NOT NULL, DEFAULT, ALTER, indexes |
 | 4 | NoSQL database creation | 4 | ✅ Complete | 3 collections with `$jsonSchema` validators and 10 indexes (`mongo_setup.py`, `mongo_commands.js`) |
 | 5 | Technology justification | 1 | ✅ Complete | §4 |
 | 6 | DML operations | 4 | ✅ Complete | §5.3, `06_dml_demo.sql` (one headed INSERT/UPDATE/DELETE per table), `mongo_dml_demo.js`, all CRUD forms in the UI |
@@ -390,7 +405,24 @@ Test run (`pytest`, against the real PostgreSQL 18 and MongoDB servers):
 | 11 | Backend/API and DB integration | 2 | ✅ Complete | FastAPI connected to both real servers, SQL↔Mongo integration |
 | 12 | Authentication (frontend) + ≥2 roles + RBAC in database | 4 | ✅ Complete | login/logout, JWT, 3 roles `gs_admin` / `gs_security` / `gs_viewer` with GRANTs incl. column-level, `SET LOCAL ROLE` |
 | 13 | Documentation, Git/GitHub | 2 | ✅ Complete | README.md, this report, GitHub repository |
-| 14 | Originality, individual contribution, viva | 4 | ⏳ Team | demonstrated during viva |
+| 14 | Originality, individual contribution, viva | 4 | ⏳ Team | §9.1 contribution table (to be filled in by the team); demonstrated during viva |
+
+### 9.1 Individual contribution
+
+*To be filled in by the team before submission. Mark each module with the person who did it, or "both" if it was shared. Each person should be able to explain every module in the viva, not only their own.*
+
+| Module | Files | Vilohith Sree Sai Reddy Daggolu (PES1UG24CS535) | Yele Charan (PES1UG25CS856) |
+|---|---|---|---|
+| ER diagram and relational schema | `docs/er_diagram.png`, `docs/relational_schema.png` | | |
+| PostgreSQL DDL and constraints | `database/postgres/01_schema.sql` | | |
+| Functions, procedures, triggers | `database/postgres/02_functions_triggers.sql` | | |
+| Roles and RBAC | `database/postgres/03_roles.sql` | | |
+| Sample data, DML and queries | `04_seed.sql`, `05_queries.sql`, `06_dml_demo.sql`, `07_advanced_sql_demo.sql` | | |
+| MongoDB collections and commands | `backend/app/mongo_setup.py`, `database/mongodb/*.js` | | |
+| FastAPI backend and authentication | `backend/app/` | | |
+| Next.js frontend | `frontend/src/` | | |
+| Tests | `backend/tests/` | | |
+| Report, README, screenshots | `docs/`, `README.md` | | |
 
 ### Notes on the design (differences from the diagrams, with reasons)
 1. PostgreSQL table names are lowercase (`access_logs`, not `"Access_Logs"`). PostgreSQL folds unquoted identifiers to lowercase, and quoted mixed-case names would have to be quoted in every query. MongoDB collections keep the diagram names.

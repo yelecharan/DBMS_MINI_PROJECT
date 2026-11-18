@@ -1,0 +1,105 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/vs2015.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<style>
+body{margin:0;background:#0b1220;font-family:"Segoe UI",Arial,sans-serif;width:1240px}
+.win{margin:22px;border-radius:10px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.45);border:1px solid #2b3445}
+.bar{background:#1f2633;color:#cbd5e1;padding:9px 14px;font-size:14px;display:flex;align-items:center;gap:8px}
+.dot{width:12px;height:12px;border-radius:50%;display:inline-block}
+.file{margin-left:10px;color:#e2e8f0;font-family:Consolas,monospace}
+.cap{margin-left:auto;color:#93c5fd;font-weight:600}
+.body{display:flex;background:#1e1e1e}
+pre{margin:0;padding:14px 0;font:14px/1.5 Consolas,"Cascadia Mono",monospace}
+.ln{color:#6e7681;text-align:right;padding:14px 12px 14px 16px;user-select:none;border-right:1px solid #2d2d2d;background:#1a1a1a}
+code.hljs{padding:0 18px !important;background:#1e1e1e !important;white-space:pre}
+</style></head><body><div class="win">
+<div class="bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span>
+<span class="dot" style="background:#28c840"></span><span class="file">database/postgres/01_schema.sql</span><span class="cap">PostgreSQL DDL – tables with PK, FK, UNIQUE, CHECK, DEFAULT</span></div>
+<div class="body"><pre class="ln">33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76</pre><pre><code class="language-sql">CREATE TABLE cards (
+    card_id      SERIAL      PRIMARY KEY,
+    emp_id       INT         NOT NULL,
+    card_no      VARCHAR(20) NOT NULL,
+    issue_date   DATE        NOT NULL DEFAULT CURRENT_DATE,
+    expiry_date  DATE        NOT NULL,
+    status       VARCHAR(10) NOT NULL DEFAULT &#x27;ACTIVE&#x27;,
+    CONSTRAINT fk_cards_employee FOREIGN KEY (emp_id)
+        REFERENCES employees(emp_id) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT uq_cards_card_no  UNIQUE (card_no),
+    CONSTRAINT chk_cards_status  CHECK (status IN (&#x27;ACTIVE&#x27;,&#x27;INACTIVE&#x27;,&#x27;EXPIRED&#x27;,&#x27;LOST&#x27;)),
+    CONSTRAINT chk_cards_dates   CHECK (expiry_date &gt; issue_date)
+);
+
+-- ---------------------------------------------------------------------
+-- R3 Gates(gate_id PK, gate_name, location, type, status)
+-- ---------------------------------------------------------------------
+CREATE TABLE gates (
+    gate_id    SERIAL       PRIMARY KEY,
+    gate_name  VARCHAR(50)  NOT NULL,
+    location   VARCHAR(100) NOT NULL,
+    type       VARCHAR(15)  NOT NULL DEFAULT &#x27;ENTRY&#x27;,
+    status     VARCHAR(12)  NOT NULL DEFAULT &#x27;ACTIVE&#x27;,
+    CONSTRAINT uq_gates_name    UNIQUE (gate_name),
+    CONSTRAINT chk_gates_type   CHECK (type IN (&#x27;ENTRY&#x27;,&#x27;EXIT&#x27;,&#x27;BIDIRECTIONAL&#x27;)),
+    CONSTRAINT chk_gates_status CHECK (status IN (&#x27;ACTIVE&#x27;,&#x27;INACTIVE&#x27;,&#x27;MAINTENANCE&#x27;))
+);
+
+-- ---------------------------------------------------------------------
+-- R4 Access_Logs(scan_id PK, card_id FK -&gt; Cards, gate_id FK -&gt; Gates, scan_time, access_result)
+-- Cards (1) --generates-- (N) Access_Logs, Gates (1) --at-- (N) Access_Logs.
+-- Every log needs a card and a gate (total participation of Access_Logs) -&gt; NOT NULL.
+-- ON DELETE RESTRICT keeps the audit trail: a card/gate with scans cannot be deleted.
+-- ---------------------------------------------------------------------
+CREATE TABLE access_logs (
+    scan_id        SERIAL      PRIMARY KEY,
+    card_id        INT         NOT NULL,
+    gate_id        INT         NOT NULL,
+    scan_time      TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    access_result  VARCHAR(10) NOT NULL DEFAULT &#x27;GRANTED&#x27;,
+    CONSTRAINT fk_logs_card FOREIGN KEY (card_id)
+        REFERENCES cards(card_id) ON DELETE RESTRICT,
+    CONSTRAINT fk_logs_gate FOREIGN KEY (gate_id)
+        REFERENCES gates(gate_id) ON DELETE RESTRICT</code></pre></div>
+</div><script>hljs.highlightAll();</script></body></html>
